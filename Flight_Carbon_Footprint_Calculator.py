@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
 """
+Created on Thu Aug 24 16:38:19 2023
+
+@author: twadel816
+"""
+
+# -*- coding: utf-8 -*-
+"""
 Created on Thu Aug 24 15:28:44 2023
 
 @author: twadel816
@@ -58,7 +65,6 @@ for trip, (distance, start, end, date) in enumerate(zip(distances, df['Starting 
     distance_miles = distance * .62
     carbon_calc = int(carbon_calc)
     trees = (carbon_calc/ 454) * 5
-    trees = round(trees)
     trees_dollars = "${:,.2f}".format(trees)
     
     formatted_date = date.strftime("%m/%d/%Y")
@@ -74,6 +80,5 @@ total_distance = sum(distances)
 carbon_calc = total_distance * .115
 carbon_calc = int(carbon_calc)
 trees = (carbon_calc/ 454) * 5
-trees = round(trees)
 trees_dollars = "${:,.2f}".format(trees)
 print("\nTo offset my total C02 contribution, I need to donate " + str(trees_dollars))
