@@ -1,4 +1,8 @@
+#I wrote this code to calculate the estimated carbon footprint of a flight and how much I need to donate to offset that amount
+#I am an avid traveler, but also am big on trying to find ways to fight climate change
+#I like practical scripts like this that give me an actionable answer to a question I have
 #import packages
+
 import pandas as pd
 from math import radians, sin, cos, sqrt, atan2
 
