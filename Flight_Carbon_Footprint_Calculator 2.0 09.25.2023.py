@@ -1,6 +1,14 @@
+#Motivation
 #I wrote this code to calculate the estimated carbon footprint of a flight and how much I need to donate to offset that amount
 #I am an avid traveler, but also am big on trying to find ways to fight climate change
 #I like practical scripts like this that give me an actionable answer to a question I have
+
+#Research
+#My C02 estimates are based on my research online
+#It assumes that the plane is a 747 or of similar size
+# The KG of C02 per flight are pretty close to what you see on google flights
+#A mature tree will offset about 20 kg of C02 / year
+
 #import packages
 
 import pandas as pd
@@ -16,8 +24,8 @@ df = pd.read_excel('C:\\Users\\twadel816\\Downloads\\US_Airport_Data.xlsx', shee
 df['Date'] = pd.to_datetime(df['Date'])
 
 
-distances_2023 = []  # List to store distances
-distances_2024 = []  # List to store distances
+distances_2023 = []  # List to store 2023 distances
+distances_2024 = []  # List to store 2024 distances
 
 df_2023 = df.where(df['Year'] == 2023).dropna()
 df_2024 = df.where(df['Year'] == 2024).dropna()
@@ -109,11 +117,12 @@ for trip in df['Trip']:
 
 # Now you can use the distances list outside of the loop
 for trip, (distance, start, end, date, trip) in enumerate(zip(distances_2023, df_2023['Starting Location City Name'], df_2023['Ending Location City Name'], df_2023['Date'], df_2023['Trip']), start=1):
-    carbon_calc = distance * .115
+    carbon_calc = distance * .07705
     distance_miles = distance * .62
     carbon_calc = int(carbon_calc)
-    #Based on my online resarch, this is an estimate of the C02 offset between trees planted and distance traveled 
-    trees = (carbon_calc/ 454) * 5
+    #Based on my online resarch, this is an estimate of the C02 offset between trees planted and distance traveled
+    #A mature tree will offset about 20 kg of C02 / year
+    trees = carbon_calc / 20
     #teamtrees.org donates a tree per dollar
     #I currently donate with Wren as they are a little more well known for their environmental impacts
     #Turns the calculation into a dollar format
@@ -125,11 +134,11 @@ for trip, (distance, start, end, date, trip) in enumerate(zip(distances_2023, df
     print(f"Trip #{trip}: {start} to {end} on {formatted_date}, {distance_miles} miles, produced {carbon_calc}kg of C02. I need to donate {trees_dollars} to offset this amount")
 
 for trip, (distance, start, end, date, trip) in enumerate(zip(distances_2024, df_2024['Starting Location City Name'], df_2024['Ending Location City Name'], df_2024['Date'], df_2024['Trip']), start=1):
-    carbon_calc = distance * .115
+    carbon_calc = distance * .07705
     distance_miles = distance * .62
     carbon_calc = int(carbon_calc)
     #Based on my online resarch, this is an estimate of the C02 offset between trees planted and distance traveled 
-    trees = (carbon_calc/ 454) * 5
+    trees = carbon_calc / 20
     #teamtrees.org donates a tree per dollar
     #I currently donate with Wren as they are a little more well known for their environmental impacts
     #Turns the calculation into a dollar format
@@ -144,9 +153,9 @@ for trip, (distance, start, end, date, trip) in enumerate(zip(distances_2024, df
 total_distance_2023 = sum(distances_2023)
 distance_miles = total_distance_2023 * .62
 distance_miles = int(distance_miles)
-carbon_calc = total_distance_2023 * .115
+carbon_calc = total_distance_2023 * .07705
 carbon_calc = int(carbon_calc)
-trees = (carbon_calc/ 454) * 5
+trees = carbon_calc / 20
 trees_dollars = "${:,.2f}".format(trees)
 trip_number = int(max(df['Trip'].where(df['Year'] == 2023)))
 
@@ -158,9 +167,9 @@ print(f"In 2023, I have traveleled {distance_miles} miles during {trip_number} t
 total_distance_2024 = sum(distances_2024)
 distance_miles = total_distance_2024 * .62
 distance_miles = int(distance_miles)
-carbon_calc = total_distance_2024 * .115
+carbon_calc = total_distance_2024 * .07705
 carbon_calc = int(carbon_calc)
-trees = (carbon_calc/ 454) * 5
+trees = carbon_calc / 20
 trees_dollars = "${:,.2f}".format(trees)
 trip_number = int(max(df['Trip'])) - int(max(df['Trip'].where(df['Year'] == 2023)))
 
@@ -174,12 +183,12 @@ print("\nAll Time Stats:")
 total_distance_all_Time = sum(distances_2023) + sum(distances_2024)
 distance_miles = total_distance_all_Time * .62
 distance_miles = int(distance_miles)
-carbon_calc = total_distance_all_Time * .115
+carbon_calc = total_distance_all_Time * .07705
 carbon_calc = int(carbon_calc)
-trees = (carbon_calc/ 454) * 5
+trees = carbon_calc / 20
 trees_dollars = "${:,.2f}".format(trees)
 trip_number = int(max(df['Trip']))
 
 print(f"My total Carbin Footprint from air travel is approximately {carbon_calc} kg of C02")
-print("I need to donate " + str(trees_dollars) + " to offset my 2024 total C02 contribution.")
+print("I need to donate " + str(trees_dollars) + " to offset my total C02 contribution.")
 print(f"In Total, I have traveleled {distance_miles} miles during {trip_number} trips") 
