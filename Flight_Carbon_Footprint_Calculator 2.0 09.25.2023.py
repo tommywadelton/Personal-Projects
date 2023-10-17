@@ -192,3 +192,32 @@ trip_number = int(max(df['Trip']))
 print(f"My total Carbin Footprint from air travel is approximately {carbon_calc} kg of C02")
 print("I need to donate " + str(trees_dollars) + " to offset my total C02 contribution.")
 print(f"In Total, I have traveleled {distance_miles} miles during {trip_number} trips") 
+
+################################################################################################
+#Example of the output:
+    
+#Trip #1: Denver to Indianapolis on 08/25/2023, 1944.32 miles, produced 241kg of C02. I need to donate $12.05 to offset this amount
+#Trip #2: Denver to Quito on 08/25/2023, 3216.56 miles, produced 399kg of C02. I need to donate $19.95 to offset this amount
+#Trip #3: Quito to Denver on 08/25/2023, 3216.56 miles, produced 399kg of C02. I need to donate $19.95 to offset this amount
+#Trip #4: Denver to Burbank on 08/25/2023, 1695.08 miles, produced 210kg of C02. I need to donate $10.50 to offset this amount
+#Trip #5: Denver to Philly on 09/25/2023, 3101.24 miles, produced 385kg of C02. I need to donate $19.25 to offset this amount
+#Trip #6: Denver to Richmond on 11/10/2023, 2951.2 miles, produced 366kg of C02. I need to donate $18.30 to offset this amount
+#Trip #7: Denver to Indianapolis on 11/21/2023, 1944.32 miles, produced 241kg of C02. I need to donate $12.05 to offset this amount
+#Trip #8: Denver to Indianapolis on 12/23/2023, 1944.32 miles, produced 241kg of C02. I need to donate $12.05 to offset this amount
+#Trip #9: Denver to Moi International on 08/03/2024, 9089.82 miles, produced 1129kg of C02. I need to donate $56.45 to offset this amount
+#Trip #10: Mombasa to Kilimanjaro on 08/03/2024, 178.56 miles, produced 22kg of C02. I need to donate $1.10 to offset this amount
+
+#2023 Stats:
+#My total Carbin Footprint from air travel in 2023 is approximately 2487 kg of C02
+#To offset my total C02 contribution, I need to donate $124.35
+#In 2023, I have traveleled 20013 miles during 8 trip(s)
+
+#2024 Stats:
+#My total Carbin Footprint from air travel in 2024 is approximately 1151 kg of C02
+#I need to donate $57.55 to offset my 2023 total C02 contribution.
+#In 2024, I have traveleled 9268 miles during 2 trip(s)
+
+#All Time Stats:
+#My total Carbin Footprint from air travel is approximately 3638 kg of C02
+#I need to donate $181.90 to offset my total C02 contribution.
+#In Total, I have traveleled 29281 miles during 10 trips
