@@ -1,0 +1,109 @@
+#November Project Workout Generator
+import random
+import itertools
+import warnings
+warnings.filterwarnings("ignore")
+
+Wed_Locations = ['Capitol Building', 'Civic Center']
+
+Friday_Locations = ['City Park','Arkins Promendate','Cheeseman','Mile High Stadium','Confluence Park','Govenors Park','Commons Park','Slaons Lake']
+
+Workout_Type = ['Dice','Cards','Rock Paper Scissors']
+
+Workout_Structure = ['Solo/Loops','Partner','3 Person']
+
+Exercises = ['Push Up'
+    ,'Dips'
+    ,'Ab Star'
+    ,'Step Ups'
+    ,'Reverse Lunge to Knee Drive'
+    ,'Incline Pushups'
+    ,'Incline Pushups'
+    ,'Inchowm to Plank Jack'
+    ,'Inchworm with optional push up'
+    ,'Touchdown Squat'
+    ,'Seal Jack'
+    ,'Bent arm plank with hip dips'
+    ,'Ab Twists'
+    ,'Soccer Taps'
+    ,'Partner Pushups'
+    ,'Windmill Planks'
+    'Shoulder Taps'
+    ]
+
+Responsibilities = ['Tommy'
+    ,'Becca'
+    ,'Tommy'
+    ,'Becca'
+    ]
+
+Whos_Doing_What = ['Bounce'
+    ,'Workout'
+    ,'Burnout'
+    ,'Announcments'
+    ]
+
+EMOM = ['Pushups','Burpees','Squats']
+
+#Regular_Burnout = ['hold a squat run down star jump sprint back tag a partner out. hold a plank until team is done']
+
+print("You may proceed if you can answer me these questions:\n")
+day_of_week = input("What day of the week? Type (W or F): ")
+num_of_exercises = int(input("How many exercises? "))
+
+Workout_Type = random.choice(Workout_Type)
+Exercise = random.sample(Exercises, num_of_exercises)
+
+assignments = random.sample(set(itertools.product(Responsibilities,Whos_Doing_What)), 4)
+
+#print(Burnout)
+
+def Location():
+    if day_of_week == 'W':
+        location = random.choice(Wed_Locations) 
+        print(location)
+    else:
+        location = random.choice(Friday_Locations)
+        print(location)
+
+Burnout_Type = ['Tabata','EMOM','Song','Hills', 'Race']
+
+Rounds = ['Y', 'N'] 
+
+Burnout_Songs = ['Thunderstruck'
+    ,'Bicycles'
+    ,'Push It'
+    ,'Chumbawamba'
+    ]
+
+Song_Exercise = ['Pushups'
+    ,'Burpees'
+    ,'Squats'
+    ]
+
+def Burnout():
+    Burnout = random.choice(Burnout_Type)
+    if Burnout == 'Tabata':
+        print('Tabata Burnout')
+    elif Burnout == 'EMOM': #Works
+        EMOM_Ex = random.choice(EMOM)
+        print(f'EMOM: {EMOM_Ex}')
+    elif Burnout == 'Song':
+        Burnout_Song = random.choice(Burnout_Songs)
+        print(f'Song: {Burnout_Song}')
+    elif Burnout == 'Hills':
+        print('Hills')
+    else:
+        print(Burnout)
+
+print("\nRecap:\n") 
+      
+Location()
+      
+print(f"\nWorkout Type: {Workout_Type}\n\nExercises:\n")
+
+for i in Exercise:
+    print(i)
+
+print("\nBurnout:")
+Burnout()
