@@ -1,12 +1,14 @@
 #November Project Workout Generator
+
 import random
 import itertools
 import warnings
+import pandas as pd
 warnings.filterwarnings("ignore")
 
 Wed_Locations = ['Capitol Building', 'Civic Center']
 
-Friday_Locations = ['City Park','Arkins Promendate','Cheeseman','Mile High Stadium','Confluence Park','Govenors Park','Commons Park','Slaons Lake']
+Friday_Locations = ['City Park','Arkins Promendate','Cheeseman','Mile High Stadium','Confluence Park','Govenors Park','Commons Park','Sloans Lake']
 
 Workout_Type = ['Dice','Cards','Rock Paper Scissors']
 
@@ -17,7 +19,6 @@ Exercises = ['Push Up'
     ,'Ab Star'
     ,'Step Ups'
     ,'Reverse Lunge to Knee Drive'
-    ,'Incline Pushups'
     ,'Incline Pushups'
     ,'Inchowm to Plank Jack'
     ,'Inchworm with optional push up'
@@ -31,32 +32,29 @@ Exercises = ['Push Up'
     'Shoulder Taps'
     ]
 
-Responsibilities = ['Tommy'
-    ,'Becca'
-    ,'Tommy'
-    ,'Becca'
-    ]
+Responsibilities = ['Tommy','Becca', 'Tommy', 'Becca']
 
-Whos_Doing_What = ['Bounce'
-    ,'Workout'
-    ,'Burnout'
-    ,'Announcments'
-    ]
+Whos_Doing_What = ['Bounce','Workout','Burnout','Announcments']
+
+c = list(zip(Responsibilities, Whos_Doing_What))
+
+random.shuffle(c)
+
+a, b = zip(*c)
+
+df = pd.DataFrame(c, columns = ['Person', 'Assignment'])
 
 EMOM = ['Pushups','Burpees','Squats']
 
+num_of_exercises = [4,6]
 #Regular_Burnout = ['hold a squat run down star jump sprint back tag a partner out. hold a plank until team is done']
 
-print("You may proceed if you can answer me these questions:\n")
-day_of_week = input("What day of the week? Type (W or F): ")
-num_of_exercises = int(input("How many exercises? "))
+day_of_week = input("Wednesday or Friday? Type (W or F): ")
+#num_of_exercises = int(input("How many exercises? "))
 
 Workout_Type = random.choice(Workout_Type)
+num_of_exercises = random.choice(num_of_exercises)
 Exercise = random.sample(Exercises, num_of_exercises)
-
-assignments = random.sample(set(itertools.product(Responsibilities,Whos_Doing_What)), 4)
-
-#print(Burnout)
 
 def Location():
     if day_of_week == 'W':
@@ -96,14 +94,40 @@ def Burnout():
     else:
         print(Burnout)
 
-print("\nRecap:\n") 
-      
+print("\nWorkout Example:\n") 
+
+print("Location:")
 Location()
+
+df['Person'] =  df['Person'].apply(lambda x: x.replace('[','').replace(']','')) 
+
+bouncer = df.loc[df["Assignment"] == 'Bounce']
+bouncer = bouncer["Person"].values
+bouncer = str(bouncer)
+print("\nBounce:")
+print(bouncer[2: -2])
+
+workout_explainer = df.loc[df["Assignment"] == 'Workout']
+print("\nWorkout:")
+workout_explainer = workout_explainer["Person"].values
+workout_explainer = str(workout_explainer)
+print(workout_explainer[2: -2])
       
 print(f"\nWorkout Type: {Workout_Type}\n\nExercises:\n")
 
 for i in Exercise:
     print(i)
 
+burner_outer = df.loc[df["Assignment"] == 'Burnout']
 print("\nBurnout:")
+burner_outer = burner_outer["Person"].values
+burner_outer = str(burner_outer)
+print(burner_outer[2: -2] + "\n")
 Burnout()
+
+announcing_shit = df.loc[df["Assignment"] == 'Announcments']
+
+print("\nAnnouncments:")
+announcing_shit = announcing_shit["Person"].values
+announcing_shit = str(announcing_shit)
+print(announcing_shit[2: -2])
