@@ -12,24 +12,35 @@ Friday_Locations = ['City Park','Arkins Promendate','Cheeseman','Mile High Stadi
 
 Workout_Type = ['Dice','Cards','Rock Paper Scissors']
 
-Workout_Structure = ['Solo/Loops','Partner','3 Person']
+Workout_Structure = ['Solo/Loops'
+                     ,'Solo/Loops'
+                     ,'Solo/Loops'
+                     ,'Solo/Loops'
+                     ,'Solo/Loops'
+                     ,'Partner'
+                     ,'Partner'
+                     ,'3 Person']
 
-Exercises = ['Push Up'
-    ,'Dips'
-    ,'Ab Star'
-    ,'Step Ups'
-    ,'Reverse Lunge to Knee Drive'
-    ,'Incline Pushups'
-    ,'Inchowm to Plank Jack'
-    ,'Inchworm with optional push up'
-    ,'Touchdown Squat'
-    ,'Seal Jack'
-    ,'Bent arm plank with hip dips'
-    ,'Ab Twists'
-    ,'Soccer Taps'
-    ,'Partner Pushups'
-    ,'Windmill Planks'
-    'Shoulder Taps'
+Exercises_Arm = ['Push Up' #arm
+    ,'Dips' #arm
+    ,'Incline Pushups' #arm
+    ,'Inchworm with optional push up' #arm
+    ,'Partner Pushups' #arm
+    ]
+
+Exercises_Ab = ['Ab Star' #ab
+    ,'Inchowm to Plank Jack' #ab
+    ,'Bent arm plank with hip dips' #ab
+    ,'Ab Twists' #ab
+    ,'Windmill Planks' #ab
+    ,'Shoulder Taps' #ab
+    ]
+
+Exercises_Leg = ['Step Ups' #leg
+    ,'Reverse Lunge to Knee Drive' #leg
+    ,'Touchdown Squat' #leg
+    ,'Seal Jack' #leg
+    ,'Soccer Taps' #leg
     ]
 
 Responsibilities = ['Tommy','Becca', 'Tommy', 'Becca']
@@ -46,15 +57,24 @@ df = pd.DataFrame(c, columns = ['Person', 'Assignment'])
 
 EMOM = ['Pushups','Burpees','Squats']
 
-num_of_exercises = [4,6]
+
 #Regular_Burnout = ['hold a squat run down star jump sprint back tag a partner out. hold a plank until team is done']
 
 day_of_week = input("Wednesday or Friday? Type (W or F): ")
 #num_of_exercises = int(input("How many exercises? "))
 
-Workout_Type = random.choice(Workout_Type)
-num_of_exercises = random.choice(num_of_exercises)
-Exercise = random.sample(Exercises, num_of_exercises)
+Workout = random.choice(Workout_Type)
+
+Workout_Structure = random.choice(Workout_Structure)
+
+if Workout == 'Cards':
+    x = 4
+elif Workout == 'Dice':
+    x = 6
+elif Workout == 'Rock Paper Scissors':
+        x = 6
+
+Exercise = random.sample(Exercises_Arm + Exercises_Ab + Exercises_Leg, x)
 
 def Location():
     if day_of_week == 'W':
@@ -92,7 +112,7 @@ def Burnout():
     elif Burnout == 'Hills':
         print('Hills')
     else:
-        print(Burnout)
+        print("Big Yikes")
 
 print("\nWorkout Example:\n") 
 
@@ -113,7 +133,9 @@ workout_explainer = workout_explainer["Person"].values
 workout_explainer = str(workout_explainer)
 print(workout_explainer[2: -2])
       
-print(f"\nWorkout Type: {Workout_Type}\n\nExercises:\n")
+print(f"\nWorkout: {Workout} \nType: {Workout_Structure}\n\nExercises:\n")
+
+
 
 for i in Exercise:
     print(i)
