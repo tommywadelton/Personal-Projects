@@ -1,0 +1,59 @@
+# Running altitude and elevation calculator
+# I am an avid marathon run and live in Colorado. I was trying to find a clear way of estimating my equivalent pace at sea level and at different slopes
+# I couldnt find an online source that both of these factors so I found the rough formulas and can now plug in my running stats and get my equivalent pace for a different race / location
+# + 23 s / % grade / % mile for uphill
+# -11 s / % grade / % mile for downhill
+#Jack and Jill is an average of -1.45% grade (-18 s / mile) (goal race in Washington)
+
+from datetime import timedelta
+
+distance = float(input("Enter distance (miles): "))
+time_min = int(input(("Enter time (minutes): ")))
+time_sec = int(input(("Enter time (seconds): ")))
+time_in_secs = time_min * 60 + time_sec
+altitude = int(input("Avg. Altitude (feet): "))
+elevation_gain = int(input("Total Elevation Gain: "))
+average_slope = ((float(elevation_gain) / float(distance))) * .018916
+average_slope = float(average_slope)
+Run_Type = input("One way (OW) or out and back (OAB)?: ")
+time = time_min + (time_sec / 60)
+time = float(time)
+min_per_mile = float(time_in_secs/distance)
+td = timedelta(seconds=min_per_mile)
+print(td)
+print(average_slope)
+
+if Run_Type == 'OAB':
+    slope_sec = average_slope * 12
+elif Run_Type == 'OW':
+    slope_sec = average_slope * 23
+    
+print(slope_sec)
+
+# Calculate the estimated pace in different conditions
+altitude_adjusted = int(input("Elevation of the race: "))
+#elevation_gain = int(input("Elevation Gain/Loss of the race: "))
+#Run_Type = input("One way (OW) or out and back (OAB)?: ")
+
+
+elevation_gain_mile = elevation_gain / distance
+time_in_secs_adj = time_in_secs - ((((altitude - 3000) / 1000)*4.5)*distance) #- ((slope_sec)*distance)
+
+print(time_in_secs_adj)
+
+td_adjusted = timedelta(seconds=time_in_secs_adj/distance)
+print(td_adjusted)
+
+print(f"You ran {distance} miles with {elevation_gain} feet of gain in {time} minutes, for an average pace of {td} per mile at {altitude} feet above sea level.")
+print(f"An equivalent run at {altitude_adjusted}' would have an estimated average pace of {td_adjusted} per mile\n")
+
+distances = [1, 3.1, 6.2, 13.1, 26.2] 
+
+
+for x in distances:
+    total_time = (time_in_secs / distance) * x
+    total_time = timedelta(seconds=total_time)
+    total_time_adjusted = (time_in_secs_adj / distance) * x
+    total_time_adjusted = timedelta(seconds=total_time_adjusted)
+    print(str(x) + " mile(s) in: " + str(total_time))
+    print(str(x) + " mile(s) in: " + str(total_time_adjusted) + " \n")
