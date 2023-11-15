@@ -1,9 +1,15 @@
 # Running altitude and elevation calculator
 # I am an avid marathon run and live in Colorado. I was trying to find a clear way of estimating my equivalent pace at sea level and at different slopes
 # I couldnt find an online source that both of these factors so I found the rough formulas and can now plug in my running stats and get my equivalent pace for a different race / location
-# + 23 s / % grade / % mile for uphill
-# -11 s / % grade / % mile for downhill
+# + 20 s / % grade / % mile for uphill
+# -10 s / % grade / % mile for downhill
 #Jack and Jill is an average of -1.45% grade (-18 s / mile) (goal race in Washington)
+
+#dividing the amount of elevation change by the amount of horizontal distance covered (sometimes referred to as "the rise divided by the run"), and then multiplying the result by 100
+# + 23 s / % grade / % mile
+# -10 s / % grade / % mile for downhill
+#Jack and Jill is an average of -1.45% grade (-18 s / mile)
+#Every foot / mile is 0.02% of a grade
 
 from datetime import timedelta
 
@@ -20,32 +26,50 @@ time = time_min + (time_sec / 60)
 time = float(time)
 min_per_mile = float(time_in_secs/distance)
 td = timedelta(seconds=min_per_mile)
-print(td)
-print(average_slope)
+#print(td)
+#print(average_slope)
 
 if Run_Type == 'OAB':
     slope_sec = average_slope * 12
 elif Run_Type == 'OW':
-    slope_sec = average_slope * 23
+    slope_sec = average_slope * 20
     
-print(slope_sec)
+#print(slope_sec)
 
 # Calculate the estimated pace in different conditions
 altitude_adjusted = int(input("Elevation of the race: "))
 #elevation_gain = int(input("Elevation Gain/Loss of the race: "))
-#Run_Type = input("One way (OW) or out and back (OAB)?: ")
+Run_Type_Race = input("One way (OW) or out and back (OAB)?: ")
+elevation_gain_race = int(input("Enter the elevation gain/loss of the race: "))
+average_slope_race = ((float(elevation_gain_race) / float(distance))) * .018916
+print(average_slope_race)
 
+
+if Run_Type_Race == 'OAB':
+    slope_sec_race = average_slope_race * 12
+elif Run_Type_Race == 'OW' and elevation_gain_race < 0:
+    slope_sec_race = average_slope_race * -10
+elif Run_Type_Race == 'OW' and elevation_gain_race >= 0:
+    slope_sec_race = average_slope_race * 20
+
+print(slope_sec_race)
+
+if altitude_adjusted < 3000:
+    altitude_race = 3000
+elif altitude_adjusted > 3000:
+    altitude_race = altitude_adjusted
 
 elevation_gain_mile = elevation_gain / distance
-time_in_secs_adj = time_in_secs - ((((altitude - 3000) / 1000)*4.5)*distance) #- ((slope_sec)*distance)
+#((((altitude - altitude_race) / 1000)*4.5)*distance)
+time_in_secs_adj = time_in_secs  - ((slope_sec)*distance) - (slope_sec_race * distance)
 
 print(time_in_secs_adj)
 
 td_adjusted = timedelta(seconds=time_in_secs_adj/distance)
 print(td_adjusted)
 
-print(f"You ran {distance} miles with {elevation_gain} feet of gain in {time} minutes, for an average pace of {td} per mile at {altitude} feet above sea level.")
-print(f"An equivalent run at {altitude_adjusted}' would have an estimated average pace of {td_adjusted} per mile\n")
+print(f"\nYou ran {distance} miles with {elevation_gain} feet of gain in {time} minutes, for an average pace of {td} per mile at {altitude} feet above sea level.")
+print(f"An equivalent run at {altitude_adjusted}' and {elevation_gain_race}' of gain/loss would have an estimated average pace of {td_adjusted} per mile\n")
 
 distances = [1, 3.1, 6.2, 13.1, 26.2] 
 
