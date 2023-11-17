@@ -1,18 +1,10 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Nov 17 13:23:59 2023
-
-@author: twadel816
-"""
-
 # Running altitude and elevation calculator
-# I am an avid marathon run and live in Colorado. I was trying to find a clear way of estimating my equivalent pace at sea level and at different slopes
-# I couldnt find an online source that both of these factors so I found the rough formulas and can now plug in my running stats and get my equivalent pace for a different race / location
+# I am an avid marathon runner and live in Colorado. I was trying to find a clear way of estimating my equivalent pace at sea level and at different slopes
+# I couldnt find a clear and accurate source online that both of these factors so I found the rough formulas and can now plug in my running stats and get my equivalent pace for a different race / location
 # + 20 s / % grade / % mile for uphill
 # -10 s / % grade / % mile for downhill
-#Jack and Jill is an average of -1.45% grade (-18 s / mile) (goal race in Washington)
-
-#dividing the amount of elevation change by the amount of horizontal distance covered (sometimes referred to as "the rise divided by the run"), and then multiplying the result by 100
+#The marathon I am training for is the Jack and Jill marathon in Washington State and has an average of -1.45% grade (-18 s / mile) (-2000 feet of downhill)
+#My goal is to qualify for Boston, so I need to run under 3 hours (6:52/mile)
 # + 23 s / % grade / % mile
 # -10 s / % grade / % mile for downhill
 #Jack and Jill is an average of -1.45% grade (-18 s / mile)
@@ -115,21 +107,21 @@ class RunCalculatorGUI:
         print(f"\nDistance: {self.distance} miles")
         print(f"Time (minutes): {self.time_min}")
         print(f"Time (seconds): {self.time_sec}")
-        total_time_secs = self.time_min * 60 + self.time_sec
-        min_per_mile = float(total_time_secs/self.distance)
-        td = timedelta(seconds=min_per_mile)
-        print("Pace: " + str(td) + " mins/mile")
-        print(f"Avg. Altitude: {self.altitude}'")
-        print(f"Elevation Gain: {self.elevation_gain}'")
+        print(f"Avg. Altitude: {self.altitude} feet")
+        print(f"Elevation Gain: {self.elevation_gain} feet")
         print("\nRace Details:\n")
         print(f"Avg. Altitude of Race: {self.altitude_race} feet")
         print(f"Elevation Gain/Loss of Race: {self.elevation_gain_race} feet")
         print(f"Race Type: {self.run_type_race}\n")
 
         #Run Calculations
-        
+        total_time_secs = self.time_min * 60 + self.time_sec
         average_slope = ((float(self.elevation_gain) / float(self.distance))) * .018916
         average_slope = float(average_slope)
+        
+        min_per_mile = float(total_time_secs/self.distance)
+        td = timedelta(seconds=min_per_mile)
+        print(td)
               
         #run
         if self.run_type == 'OAB':
