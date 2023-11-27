@@ -21,31 +21,31 @@ class RunCalculatorGUI:
         self.distance_label = tk.Label(master, text="Enter distance (miles):")
         self.distance_label.pack()
         self.distance_entry = tk.Entry(master)
-        self.distance_entry.insert(0, "5") #default values
+        self.distance_entry.insert(0, "3.1") #default values
         self.distance_entry.pack()
 
         self.time_min_label = tk.Label(master, text="Enter time (minutes):")
         self.time_min_label.pack()
         self.time_min_entry = tk.Entry(master)
-        self.time_min_entry.insert(0, "39")
+        self.time_min_entry.insert(0, "16")
         self.time_min_entry.pack()
 
         self.time_sec_label = tk.Label(master, text="Enter time (seconds):")
         self.time_sec_label.pack()
         self.time_sec_entry = tk.Entry(master)
-        self.time_sec_entry.insert(0,"0")
+        self.time_sec_entry.insert(0,"49")
         self.time_sec_entry.pack()
 
         self.altitude_label = tk.Label(master, text="Avg. Altitude (feet):")
         self.altitude_label.pack()
         self.altitude_entry = tk.Entry(master)
-        self.altitude_entry.insert(0, "8500")
+        self.altitude_entry.insert(0, "0")
         self.altitude_entry.pack()
 
         self.elevation_gain_label = tk.Label(master, text="Total Elevation Gain:")
         self.elevation_gain_label.pack()
         self.elevation_gain_entry = tk.Entry(master)
-        self.elevation_gain_entry.insert(0,"600")
+        self.elevation_gain_entry.insert(0,"0")
         self.elevation_gain_entry.pack()
 
         self.run_type_label = tk.Label(master, text="One way (OW) or out and back (OAB)?:")
@@ -57,13 +57,13 @@ class RunCalculatorGUI:
         self.altitude_race_label = tk.Label(master, text="Avg. Altitude of Race (feet):")
         self.altitude_race_label.pack()
         self.altitude_race_entry = tk.Entry(master)
-        self.altitude_race_entry.insert(0,"1500")
+        self.altitude_race_entry.insert(0,"5280")
         self.altitude_race_entry.pack()
 
         self.elevation_gain_race_label = tk.Label(master, text="Total Elevation Gain/Loss of race:")
         self.elevation_gain_race_label.pack()
         self.elevation_gain_race_entry = tk.Entry(master)
-        self.elevation_gain_race_entry.insert(0,"-400")
+        self.elevation_gain_race_entry.insert(0,"0")
         self.elevation_gain_race_entry.pack()
 
         self.run_type_race_label = tk.Label(master, text="Is the race one way (OW) or out and back (OAB)?:")
@@ -107,21 +107,21 @@ class RunCalculatorGUI:
         print(f"\nDistance: {self.distance} miles")
         print(f"Time (minutes): {self.time_min}")
         print(f"Time (seconds): {self.time_sec}")
-        print(f"Avg. Altitude: {self.altitude} feet")
-        print(f"Elevation Gain: {self.elevation_gain} feet")
+        total_time_secs = self.time_min * 60 + self.time_sec
+        min_per_mile = float(total_time_secs/self.distance)
+        td = timedelta(seconds=min_per_mile)
+        print("Pace: " + str(td) + " mins/mile")
+        print(f"Avg. Altitude: {self.altitude}'")
+        print(f"Elevation Gain: {self.elevation_gain}'")
         print("\nRace Details:\n")
         print(f"Avg. Altitude of Race: {self.altitude_race} feet")
         print(f"Elevation Gain/Loss of Race: {self.elevation_gain_race} feet")
         print(f"Race Type: {self.run_type_race}\n")
 
         #Run Calculations
-        total_time_secs = self.time_min * 60 + self.time_sec
+        
         average_slope = ((float(self.elevation_gain) / float(self.distance))) * .018916
         average_slope = float(average_slope)
-        
-        min_per_mile = float(total_time_secs/self.distance)
-        td = timedelta(seconds=min_per_mile)
-        print(td)
               
         #run
         if self.run_type == 'OAB':
@@ -144,16 +144,16 @@ class RunCalculatorGUI:
         if self.run_type_race == 'OAB':
             slope_sec_race = average_slope_race * 12
         elif self.run_type_race == 'OW' and self.elevation_gain_race < 0:
-            slope_sec_race = average_slope_race * -10
+            slope_sec_race = average_slope_race * 10
         elif self.run_type_race == 'OW' and self.elevation_gain_race >= 0:
             slope_sec_race = average_slope_race * 20     
             
         if self.altitude_race < 3000:
             altitude_race = 3000
         elif self.altitude_race >= 3000:
-            altitude_race = self.altitude
+            altitude_race = self.altitude_race
         
-        time_in_secs_adj = total_time_secs  - ((((altitude - altitude_race) / 1000)*4.5)*self.distance) - ((slope_sec_run)*self.distance) - (slope_sec_race * self.distance)
+        time_in_secs_adj = total_time_secs  - ((((altitude - altitude_race) / 1000)*4.5)*self.distance) - ((slope_sec_run)*self.distance) - (slope_sec_race * self.distance)        
         
         td_adjusted = timedelta(seconds=time_in_secs_adj/self.distance)
         
