@@ -1,0 +1,121 @@
+#This code pulls data from my actual Strava account and uses that information to calculate the equivalent times at different altitudes and elevation gain
+#next addition will be to add in temperature
+
+#The print statement result looks like this (you need my access token to run this specific code
+
+#On 2023-11-23, you ran 1.88 miles with 173.88 feet of gain in an average pace of 08:37 per mile at 966.54 feet above sea level.
+#An equivalent run at 1500' above sea level and -1800' of gain/loss would have an estimated average pace of 0:07:49.728757 per mile
+
+#1 mile(s) in: 0:08:37.727769
+#1 mile(s) in: 0:07:49.728757 
+
+#3.1 mile(s) in: 0:26:44.956083
+#3.1 mile(s) in: 0:24:16.159146 
+
+#6.2 mile(s) in: 0:53:29.912166
+#6.2 mile(s) in: 0:48:32.318292 
+
+#13.1 mile(s) in: 1:53:02.233771
+#13.1 mile(s) in: 1:42:33.446713 
+
+#26.2 mile(s) in: 3:46:04.467542
+#26.2 mile(s) in: 3:25:06.893426 
+
+import urllib.request
+import json
+import pandas as pd
+from datetime import timedelta
+
+#replace the code in this with what I get from the URL when I run the above webpage
+#replace the below code with the access token that I get from Postman
+r = urllib.request.urlopen('https://www.strava.com/api/v3/athlete/activities?access_token=abcd')
+data = r.read()
+
+# Decode the byte data to string
+json_string = data.decode('utf-8')
+
+# Parse the JSON string
+json_data = json.loads(json_string)
+
+# Create a DataFrame
+df = pd.DataFrame(json_data)
+
+# Display the DataFrame
+
+df2 = df[['name', 'distance', 'moving_time', 'total_elevation_gain', 'sport_type',
+          'start_date', 'average_temp', 'elev_high', 'elev_low']].copy()
+
+x = len(df2.index)
+print(x)
+
+for i in range(len(df2.index)):
+    name = df2['name'].values[i]
+    distance_miles = df2['distance'].values[i] / 1609
+    moving_time = df2['moving_time'].values[i]
+    sport_type = df2['sport_type'].values[i]
+    start_date = pd.to_datetime(df2['start_date'].values[i])
+    elevation_gain = df2['total_elevation_gain'].values[i] * 3.280839895013123
+    altitude = ((df2['elev_high'].values[i] + df2['elev_high'].values[i]) / 2) * 3.280839895013123 #adjusting to feet
+    
+    # Calculate average pace
+    secs_per_mile = moving_time / distance_miles
+    mins_per_mile = int(secs_per_mile / 60)
+    secs_per_mile_remainder = int(secs_per_mile % 60)
+    
+    # Format the output
+    formatted_date = start_date.strftime('%Y-%m-%d')
+    formatted_distance = '{:.2f}'.format(distance_miles)
+    formatted_pace = '{:02}:{:02}'.format(mins_per_mile, secs_per_mile_remainder)
+    formatted_altitude = '{:.2f}'.format(altitude)
+    formatted_elevation_gain ='{:.2f}'.format(elevation_gain)
+       
+    average_slope = ((float(elevation_gain) / float(distance_miles))) * .018916
+    average_slope = float(average_slope)
+    
+    if elevation_gain < 0:
+        slope_sec_run = average_slope * 10
+    elif elevation_gain >= 0:
+        slope_sec_run = average_slope * 20
+        
+    if altitude < 3000:
+        altitude_adj = 3000
+    elif altitude >= 3000:
+        altitude_adj = altitude
+    
+    #jack and jill race details
+    altitude_race = 1500
+    elevation_gain_race = -1800
+    distance = 26.2
+    
+    if altitude_race < 3000:
+        altitude_adj_race = 3000
+    elif altitude_race >= 3000:
+        altitude_adj_race = altitude_race
+    
+    average_slope_race = ((float(elevation_gain_race) / float(distance))) * .018916
+    average_slope_race = float(average_slope_race)
+    
+    if elevation_gain_race < 0:
+        slope_sec_race = average_slope_race * 10
+    elif elevation_gain_race >= 0:
+        slope_sec_race = average_slope_race * 20
+    
+        
+    time_in_secs_adj = moving_time  - ((((altitude_adj - altitude_adj_race) / 1000)*4)*distance_miles) - ((slope_sec_run)*distance_miles) + (slope_sec_race * distance_miles)        
+    
+    td_adjusted = timedelta(seconds=time_in_secs_adj/distance_miles)
+    
+    print(f"\nOn {formatted_date}, you ran {formatted_distance} miles with {formatted_elevation_gain} feet of gain in an average pace of {formatted_pace} per mile at {formatted_altitude} feet above sea level.")
+    print(f"An equivalent run at {altitude_race}' above sea level and {elevation_gain_race}' of gain/loss would have an estimated average pace of {td_adjusted} per mile\n")
+
+    distances = [1, 3.1, 6.2, 13.1, 26.2] 
+
+    for x in distances:
+        total_time = (moving_time / distance_miles) * x
+        total_time = timedelta(seconds=total_time)
+        total_time_adjusted = (time_in_secs_adj / distance_miles) * x
+        total_time_adjusted = timedelta(seconds=total_time_adjusted)
+        print(str(x) + " mile(s) in: " + str(total_time))
+        print(str(x) + " mile(s) in: " + str(total_time_adjusted) + " \n")
+
+    
