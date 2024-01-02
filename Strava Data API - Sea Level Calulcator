@@ -1,4 +1,4 @@
-#This code pulls data from my actual Strava account and uses that information to calculate the equivalent times at different altitudes and elevation gain
+#The Strava_Api Function  pulls data from my actual Strava account and uses that information to calculate the equivalent times at different altitudes and elevation gain
 #next addition will be to add in temperature
 
 #The print statement result looks like this (you need my access token to run this specific code
@@ -21,101 +21,341 @@
 #26.2 mile(s) in: 3:46:04.467542
 #26.2 mile(s) in: 3:25:06.893426 
 
-import urllib.request
-import json
-import pandas as pd
+#I also have a manual calculator using Tkinter so I can enter hypothetical racing/running conditions to see the differences between them
+
+def Strava_Api():
+
+    import urllib.request
+    import json
+    import pandas as pd
+    from datetime import timedelta
+    import matplotlib.pyplot as plt
+
+    r = urllib.request.urlopen('https://www.strava.com/api/v3/athlete/activities?access_token=e249b4062d2c569df46856066d571f6aafea5ac6')
+    data = r.read()
+    
+    # Decode the byte data to string
+    json_string = data.decode('utf-8')
+    
+    # Parse the JSON string
+    json_data = json.loads(json_string)
+    
+    # Create a DataFrame
+    df = pd.DataFrame(json_data)
+    
+    df = df.loc[df['sport_type'] == 'Run']
+    
+    # Display the DataFrame
+    
+    df2 = df[['name', 'distance', 'moving_time', 'total_elevation_gain', 'sport_type',
+              'start_date', 'average_temp', 'elev_high', 'elev_low', 'timezone']].copy()
+    
+    x = len(df2.index)
+    print(x)
+    
+    sea_level = []
+    
+    for i in range(len(df2.index)):
+        name = df2['name'].values[i]
+        distance_miles = df2['distance'].values[i] / 1609
+        moving_time = df2['moving_time'].values[i]
+        sport_type = df2['sport_type'].values[i]
+        start_date = pd.to_datetime(df2['start_date'].values[i])
+        elevation_gain = df2['total_elevation_gain'].values[i] * 3.280839895013123
+        altitude = ((df2['elev_high'].values[i] + df2['elev_high'].values[i]) / 2) * 3.280839895013123 #adjusting to feet
+        timezone = df2['timezone'].values[i]
+        index = i
+        
+        # Calculate average pace
+        secs_per_mile = moving_time / distance_miles
+        mins_per_mile = int(secs_per_mile / 60)
+        secs_per_mile_remainder = int(secs_per_mile % 60)
+        
+        # Format the output
+        formatted_date = start_date.strftime('%Y-%m-%d')
+        formatted_distance = '{:.2f}'.format(distance_miles)
+        formatted_pace = '{:02}:{:02}'.format(mins_per_mile, secs_per_mile_remainder)
+        formatted_altitude = '{:.2f}'.format(altitude)
+        formatted_elevation_gain ='{:.2f}'.format(elevation_gain)
+           
+        average_slope = ((float(elevation_gain) / float(distance_miles))) * .018916
+        average_slope = float(average_slope)
+        
+        if elevation_gain < 0:
+            slope_sec_run = average_slope * 10
+        elif elevation_gain >= 0:
+            slope_sec_run = average_slope * 20
+            
+        if altitude < 3000:
+            altitude_adj = 3000
+        elif altitude >= 3000:
+            altitude_adj = altitude
+        
+        #jack and jill race details
+        altitude_race = 1500
+        elevation_gain_race = -2000
+        distance = 26.2
+        
+        if altitude_race < 3000:
+            altitude_adj_race = 3000
+        elif altitude_race >= 3000:
+            altitude_adj_race = altitude_race
+        
+        average_slope_race = ((float(elevation_gain_race) / float(distance))) * .018916
+        average_slope_race = float(average_slope_race)
+        
+        if elevation_gain_race < 0:
+            slope_sec_race = average_slope_race * 10
+        elif elevation_gain_race >= 0:
+            slope_sec_race = average_slope_race * 20
+        
+        time_in_secs_adj = moving_time  - ((((altitude_adj - altitude_adj_race) / 1000)*4)*distance_miles) - ((slope_sec_run)*distance_miles) + (slope_sec_race * distance_miles)        
+            
+        time_in_secs_adj_sl = moving_time  - ((((altitude_adj - altitude_adj_race) / 1000)*4)*distance_miles) #- ((slope_sec_run)*distance_miles) + (slope_sec_race * distance_miles)        
+        
+        td_adjusted = timedelta(seconds=time_in_secs_adj/distance_miles)
+        
+        # sea level format
+        secs_per_mile_adj = time_in_secs_adj / distance_miles
+        mins_per_mile_adj = int(secs_per_mile_adj / 60)
+        secs_per_mile_remainder_adj = int(secs_per_mile_adj % 60)
+        formatted_pace_adj = '{:02}:{:02}'.format(mins_per_mile_adj, secs_per_mile_remainder_adj)
+        
+        # race pace format
+    
+        secs_per_mile_adj_sl = time_in_secs_adj_sl / distance_miles
+        mins_per_mile_adj_sl = int(secs_per_mile_adj_sl / 60)
+        secs_per_mile_remainder_adj_sl = int(secs_per_mile_adj_sl % 60)    
+        formatted_pace_adj_sl = '{:02}:{:02}'.format(mins_per_mile_adj_sl, secs_per_mile_remainder_adj_sl)
+        
+        sea_level.append([index, name, formatted_date, timezone, sport_type, formatted_distance, formatted_elevation_gain,  formatted_altitude, mins_per_mile, formatted_pace, mins_per_mile_adj_sl, formatted_pace_adj_sl, mins_per_mile_adj, formatted_pace_adj])
+        
+        #df_sl =  pd.concat([df2, td_adjusted], axis=1)
+        
+        #print(f"\nOn {formatted_date}, you {sport_type} {formatted_distance} miles with {formatted_elevation_gain} feet of gain in an average pace of {formatted_pace} per mile at {formatted_altitude} feet above sea level.")
+        #print(f"An equivalent run at {altitude_race}' above sea level and {elevation_gain_race}' of gain/loss would have an estimated average pace of {td_adjusted} per mile\n")
+    
+        distances = [1, 3.1, 6.2, 13.1, 26.2] 
+    
+        for x in distances:
+            total_time = (moving_time / distance_miles) * x
+            total_time = timedelta(seconds=total_time)
+            total_time_adjusted = (time_in_secs_adj / distance_miles) * x
+            total_time_adjusted = timedelta(seconds=total_time_adjusted)
+            #print(str(x) + " mile(s) in: " + str(total_time))
+            #print(str(x) + " mile(s) in: " + str(total_time_adjusted) + " \n")
+            
+            
+    sea_level_df = pd.DataFrame(sea_level, columns=['Index', 'Name', 'Date', 'timezone', 'Sport Type', 'Distance', 'Elevation Gain', 'Altitude', 'Pace (m)', 'Pace', 'Sea Level Pace (m)', 'Sea Level Pace', 'Race Pace (m)', 'Race Pace'])
+    
+    # Calculate marathon time for each row individually
+    sea_level_df['Marathon Time'] = sea_level_df['Race Pace'].apply(lambda x: timedelta(minutes=int(x.split(':')[0]), seconds=int(x.split(':')[1])).total_seconds() * 26.2 / 3600)
+    
+    # Convert marathon time to HH:MM:SS format
+    sea_level_df['Marathon Time'] = sea_level_df['Marathon Time'].apply(lambda x: '{:02}:{:02}:{:02}'.format(int(x), int(x % 1 * 60), int(x % 1 * 60 % 1 * 60)))
+    
+    #Getting rid of outliers
+    sea_level_df = sea_level_df[~(sea_level_df['Pace (m)'] >= 10)] 
+    sea_level_df = sea_level_df[~(sea_level_df['Pace (m)'] <= 5)] 
+    
+    sea_level_df = sea_level_df.sort_values('Date')
+    
+    # Display the resulting DataFrame
+    print(sea_level_df)
+    
+    print("\nLine Break:\n")
+    
+    #print my most recent workout
+    print(sea_level_df.iloc[-1])
+    
+    plt.plot(sea_level_df['Date'], sea_level_df['Pace (m)'], label = 'Pace', color = "black")
+    plt.plot(sea_level_df['Date'], sea_level_df['Sea Level Pace (m)'], '-.', label = 'Sea Level Pace', color = "green")
+    plt.plot(sea_level_df['Date'], sea_level_df['Race Pace (m)'], '-.', label = 'Race Pace', color = 'red')
+    plt.axhline(y=6.866, color='blue', linestyle='-', label = 'BQ Pace')
+    plt.xticks(rotation=90, ha='right')
+    
+    # Show legend
+    plt.legend()
+    
+    # Show the plot
+    plt.show()
+
+#%%
+
 from datetime import timedelta
+import tkinter as tk
 
-#replace the code in this with what I get from the URL when I run the above webpage
-#replace the below code with the access token that I get from Postman
-r = urllib.request.urlopen('https://www.strava.com/api/v3/athlete/activities?access_token=abcd')
-data = r.read()
+def Manual_Calc():
 
-# Decode the byte data to string
-json_string = data.decode('utf-8')
+    class RunCalculatorGUI:
+        def __init__(self, master):
+            self.master = master
+            self.master.title("Pace Adjustment Calculator")
+    
+            self.distance_label = tk.Label(master, text="Enter distance (miles):")
+            self.distance_label.pack()
+            self.distance_entry = tk.Entry(master)
+            self.distance_entry.insert(0, "13.1") #default values
+            self.distance_entry.pack()
+    
+            self.time_min_label = tk.Label(master, text="Enter time (minutes):")
+            self.time_min_label.pack()
+            self.time_min_entry = tk.Entry(master)
+            self.time_min_entry.insert(0, "84")
+            self.time_min_entry.pack()
+    
+            self.time_sec_label = tk.Label(master, text="Enter time (seconds):")
+            self.time_sec_label.pack()
+            self.time_sec_entry = tk.Entry(master)
+            self.time_sec_entry.insert(0,"50")
+            self.time_sec_entry.pack()
+    
+            self.altitude_label = tk.Label(master, text="Avg. Altitude (feet):")
+            self.altitude_label.pack()
+            self.altitude_entry = tk.Entry(master)
+            self.altitude_entry.insert(0, "8000")
+            self.altitude_entry.pack()
+    
+            self.elevation_gain_label = tk.Label(master, text="Total Elevation Gain:")
+            self.elevation_gain_label.pack()
+            self.elevation_gain_entry = tk.Entry(master)
+            self.elevation_gain_entry.insert(0,"-1000")
+            self.elevation_gain_entry.pack()
+    
+            self.run_type_label = tk.Label(master, text="One way (OW) or out and back (OAB)?:")
+            self.run_type_label.pack()
+            self.run_type_entry = tk.Entry(master)
+            self.run_type_entry.insert(0,"OW")
+            self.run_type_entry.pack()
+            
+            self.altitude_race_label = tk.Label(master, text="Avg. Altitude of Race (feet):")
+            self.altitude_race_label.pack()
+            self.altitude_race_entry = tk.Entry(master)
+            self.altitude_race_entry.insert(0,"0")
+            self.altitude_race_entry.pack()
+    
+            self.elevation_gain_race_label = tk.Label(master, text="Total Elevation Gain/Loss of race:")
+            self.elevation_gain_race_label.pack()
+            self.elevation_gain_race_entry = tk.Entry(master)
+            self.elevation_gain_race_entry.insert(0,"0")
+            self.elevation_gain_race_entry.pack()
+    
+            self.run_type_race_label = tk.Label(master, text="Is the race one way (OW) or out and back (OAB)?:")
+            self.run_type_race_label.pack()
+            self.run_type_race_entry = tk.Entry(master)
+            self.run_type_race_entry.insert(0,"OW")
+            self.run_type_race_entry.pack()
+    
+            self.calculate_button = tk.Button(master, text="Calculate", command=self.calculate)
+            self.calculate_button.pack()
+    
+            # Instance variables to store user inputs
+            self.distance = None
+            self.time_min = None
+            self.time_sec = None
+            self.altitude = None
+            self.elevation_gain = None
+            self.run_type = None
+            self.altitude_race = None
+            self.elevation_gain_race = None
+            self.run_type_race = None
+    
+        def calculate(self):
+            # Retrieve values from the entries and store in instance variables
+            self.distance = float(self.distance_entry.get())
+            self.time_min = int(self.time_min_entry.get())
+            self.time_sec = int(self.time_sec_entry.get())
+            self.altitude = int(self.altitude_entry.get())
+            self.elevation_gain = int(self.elevation_gain_entry.get())
+            self.run_type = self.run_type_entry.get()
+            
+            self.altitude_race = int(self.altitude_race_entry.get())
+            self.elevation_gain_race = int(self.elevation_gain_race_entry.get())
+            self.run_type_race = self.run_type_race_entry.get()
+    
+            # Display results
+            self.print_results()
+    
+        def print_results(self):
+            print("Run Details:")
+            print(f"\nDistance: {self.distance} miles")
+            print(f"Time (minutes): {self.time_min}")
+            print(f"Time (seconds): {self.time_sec}")
+            total_time_secs = self.time_min * 60 + self.time_sec
+            min_per_mile = float(total_time_secs/self.distance)
+            td = timedelta(seconds=min_per_mile)
+            print("Pace: " + str(td) + " mins/mile")
+            print(f"Avg. Altitude: {self.altitude}'")
+            print(f"Elevation Gain: {self.elevation_gain}'")
+            print("\nRace Details:\n")
+            print(f"Avg. Altitude of Race: {self.altitude_race} feet")
+            print(f"Elevation Gain/Loss of Race: {self.elevation_gain_race} feet")
+            print(f"Race Type: {self.run_type_race}\n")
+    
+            #Run Calculations
+            
+            average_slope = ((float(self.elevation_gain) / float(self.distance))) * .018916
+            average_slope = float(average_slope)
+                  
+            #run
+            if self.run_type == 'OAB':
+                slope_sec_run = average_slope * 12
+            elif self.run_type == 'OW' and self.elevation_gain < 0:
+                slope_sec_run = average_slope * 10
+            elif self.run_type == 'OW' and self.elevation_gain >= 0:
+                slope_sec_run = average_slope * 20       
+    
+            if self.altitude < 3000:
+                altitude = 3000
+            elif self.altitude >= 3000:
+                altitude = self.altitude
+    
+            #race
+            
+            average_slope_race = ((float(self.elevation_gain_race) / float(self.distance))) * .018916
+            average_slope_race = float(average_slope_race)
+            
+            if self.run_type_race == 'OAB':
+                slope_sec_race = average_slope_race * 12
+            elif self.run_type_race == 'OW' and self.elevation_gain_race < 0:
+                slope_sec_race = average_slope_race * 10
+            elif self.run_type_race == 'OW' and self.elevation_gain_race >= 0:
+                slope_sec_race = average_slope_race * 20     
+                
+            if self.altitude_race < 3000:
+                altitude_race = 3000
+            elif self.altitude_race >= 3000:
+                altitude_race = self.altitude_race
+            
+            time_in_secs_adj = total_time_secs  - ((((altitude - altitude_race) / 1000)*4)*self.distance) - ((slope_sec_run)*self.distance) + (slope_sec_race * self.distance)        
+            
+            td_adjusted = timedelta(seconds=time_in_secs_adj/self.distance)
+            
+            #print(td_adjusted)
+    
+            distances = [1, 3.1, 6.2, 13.1, 26.2] 
+    
+    
+            for x in distances:
+                total_time = (total_time_secs / self.distance) * x
+                total_time = timedelta(seconds=total_time)
+                total_time_adjusted = (time_in_secs_adj / self.distance) * x
+                total_time_adjusted = timedelta(seconds=total_time_adjusted)
+                print(str(x) + " mile(s) in: " + str(total_time))
+                print(str(x) + " mile(s) in: " + str(total_time_adjusted) + " \n")
+    
+            print(f"\nYou ran {self.distance} miles with {self.elevation_gain} feet of gain/loss in {self.time_min}:{self.time_sec}, for an average pace of {td} per mile at {self.altitude} feet above sea level.")
+            print(f"An equivalent run at {self.altitude_race}' and {self.elevation_gain_race}' of gain/loss would have an estimated average pace of {td_adjusted} per mile\n")
+    
+    if __name__ == "__main__":
+        root = tk.Tk()
+        app = RunCalculatorGUI(root)
+        root.mainloop()
 
-# Parse the JSON string
-json_data = json.loads(json_string)
+#%%
 
-# Create a DataFrame
-df = pd.DataFrame(json_data)
+Strava_Api()
 
-# Display the DataFrame
+#%%
 
-df2 = df[['name', 'distance', 'moving_time', 'total_elevation_gain', 'sport_type',
-          'start_date', 'average_temp', 'elev_high', 'elev_low']].copy()
-
-x = len(df2.index)
-print(x)
-
-for i in range(len(df2.index)):
-    name = df2['name'].values[i]
-    distance_miles = df2['distance'].values[i] / 1609
-    moving_time = df2['moving_time'].values[i]
-    sport_type = df2['sport_type'].values[i]
-    start_date = pd.to_datetime(df2['start_date'].values[i])
-    elevation_gain = df2['total_elevation_gain'].values[i] * 3.280839895013123
-    altitude = ((df2['elev_high'].values[i] + df2['elev_high'].values[i]) / 2) * 3.280839895013123 #adjusting to feet
-    
-    # Calculate average pace
-    secs_per_mile = moving_time / distance_miles
-    mins_per_mile = int(secs_per_mile / 60)
-    secs_per_mile_remainder = int(secs_per_mile % 60)
-    
-    # Format the output
-    formatted_date = start_date.strftime('%Y-%m-%d')
-    formatted_distance = '{:.2f}'.format(distance_miles)
-    formatted_pace = '{:02}:{:02}'.format(mins_per_mile, secs_per_mile_remainder)
-    formatted_altitude = '{:.2f}'.format(altitude)
-    formatted_elevation_gain ='{:.2f}'.format(elevation_gain)
-       
-    average_slope = ((float(elevation_gain) / float(distance_miles))) * .018916
-    average_slope = float(average_slope)
-    
-    if elevation_gain < 0:
-        slope_sec_run = average_slope * 10
-    elif elevation_gain >= 0:
-        slope_sec_run = average_slope * 20
-        
-    if altitude < 3000:
-        altitude_adj = 3000
-    elif altitude >= 3000:
-        altitude_adj = altitude
-    
-    #jack and jill race details
-    altitude_race = 1500
-    elevation_gain_race = -1800
-    distance = 26.2
-    
-    if altitude_race < 3000:
-        altitude_adj_race = 3000
-    elif altitude_race >= 3000:
-        altitude_adj_race = altitude_race
-    
-    average_slope_race = ((float(elevation_gain_race) / float(distance))) * .018916
-    average_slope_race = float(average_slope_race)
-    
-    if elevation_gain_race < 0:
-        slope_sec_race = average_slope_race * 10
-    elif elevation_gain_race >= 0:
-        slope_sec_race = average_slope_race * 20
-    
-        
-    time_in_secs_adj = moving_time  - ((((altitude_adj - altitude_adj_race) / 1000)*4)*distance_miles) - ((slope_sec_run)*distance_miles) + (slope_sec_race * distance_miles)        
-    
-    td_adjusted = timedelta(seconds=time_in_secs_adj/distance_miles)
-    
-    print(f"\nOn {formatted_date}, you ran {formatted_distance} miles with {formatted_elevation_gain} feet of gain in an average pace of {formatted_pace} per mile at {formatted_altitude} feet above sea level.")
-    print(f"An equivalent run at {altitude_race}' above sea level and {elevation_gain_race}' of gain/loss would have an estimated average pace of {td_adjusted} per mile\n")
-
-    distances = [1, 3.1, 6.2, 13.1, 26.2] 
-
-    for x in distances:
-        total_time = (moving_time / distance_miles) * x
-        total_time = timedelta(seconds=total_time)
-        total_time_adjusted = (time_in_secs_adj / distance_miles) * x
-        total_time_adjusted = timedelta(seconds=total_time_adjusted)
-        print(str(x) + " mile(s) in: " + str(total_time))
-        print(str(x) + " mile(s) in: " + str(total_time_adjusted) + " \n")
-
-    
+Manual_Calc()
