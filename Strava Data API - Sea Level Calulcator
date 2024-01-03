@@ -31,13 +31,7 @@ def Strava_Api():
     from datetime import timedelta
     import matplotlib.pyplot as plt
 
-    #https://www.strava.com/oauth/authorize?client_id=118537&response_type=code&redirect_uri=http://localhost/exchange_token&approval_prompt=force&scope=activity:read_all
-    #replace the code in this with what I get from the URL when I run the above webpage
-    #https://www.strava.com/oauth/token?client_id=118537&client_secret=5943c8fdf9b98aa7e7a386cb14992389f046a7a8&code=dba5825dbe698224bd17d779cec0caba0119505f&grant_type=authorization_code
-    #replace the below code with the access token that I get from Postman
-
-
-    r = urllib.request.urlopen('https://www.strava.com/api/v3/athlete/activities?access_token=83352d81225ac73a292951169aa744b1ab7fed01')
+    r = urllib.request.urlopen('https://www.strava.com/api/v3/athlete/activities?access_token=abcd')
     data = r.read()
 
     # Decode the byte data to string
