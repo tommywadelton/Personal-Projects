@@ -22,6 +22,8 @@
 #26.2 mile(s) in: 3:25:06.893426 
 
 #I also have a manual calculator using Tkinter so I can enter hypothetical racing/running conditions to see the differences between them
+#You need to set up your Strava account to hit the API (https://developers.strava.com/docs/getting-started/)
+#https://levelup.gitconnected.com/integrating-with-the-strava-api-40244b17df2c
 
 def Strava_Api():
 
@@ -30,31 +32,38 @@ def Strava_Api():
     import pandas as pd
     from datetime import timedelta
     import matplotlib.pyplot as plt
+    
+    #https://www.strava.com/oauth/authorize?client_id=1234&response_type=code&redirect_uri=http://localhost/exchange_token&approval_prompt=force&scope=activity:read_all
+    #replace the code in this with what I get from the URL when I run the above webpage
+    #https://www.strava.com/oauth/token?client_id=1234&client_secret=12348&code=45678&grant_type=authorization_code
+    #replace the below code with the access token that I get from Postman
 
     r = urllib.request.urlopen('https://www.strava.com/api/v3/athlete/activities?access_token=abcd')
     data = r.read()
-
+    
     # Decode the byte data to string
     json_string = data.decode('utf-8')
-
+    
     # Parse the JSON string
     json_data = json.loads(json_string)
-
+    
     # Create a DataFrame
     df = pd.DataFrame(json_data)
-
+    
+    print(df)
+    
     df = df.loc[df['sport_type'] == 'Run']
-
+    
     # Display the DataFrame
-
+    
     df2 = df[['name', 'distance', 'moving_time', 'total_elevation_gain', 'sport_type',
-              'start_date', 'average_temp', 'elev_high', 'elev_low', 'timezone']].copy()
-
+              'start_date', 'average_temp', 'elev_high', 'elev_low', 'timezone', 'average_temp']].copy()
+    
     x = len(df2.index)
     print(x)
-
+    
     sea_level = []
-
+    
     for i in range(len(df2.index)):
         name = df2['name'].values[i]
         distance_miles = df2['distance'].values[i] / 1609
@@ -64,6 +73,8 @@ def Strava_Api():
         elevation_gain = df2['total_elevation_gain'].values[i] * 3.280839895013123
         altitude = ((df2['elev_high'].values[i] + df2['elev_high'].values[i]) / 2) * 3.280839895013123 #adjusting to feet
         timezone = df2['timezone'].values[i]
+        temp_c = df2['average_temp'].values[i][0] if df2['average_temp'].values[i].any() else None
+        temp = (temp_c * 9/5) + 32
         index = i
         
         # Calculate average pace
@@ -113,30 +124,29 @@ def Strava_Api():
             
         time_in_secs_adj_sl = moving_time  - ((((altitude_adj - altitude_adj_race) / 1000)*4)*distance_miles) #- ((slope_sec_run)*distance_miles) + (slope_sec_race * distance_miles)        
         
-        td_adjusted = timedelta(seconds=time_in_secs_adj/distance_miles)
-        
         # sea level format
         secs_per_mile_adj = time_in_secs_adj / distance_miles
+        secs_per_marathon = secs_per_mile_adj * 26.2
         mins_per_mile_adj = (secs_per_mile_adj / 60).astype(float).round(2)
         secs_per_mile_remainder_adj = int(secs_per_mile_adj % 60)
         formatted_pace_adj = '{:02}:{:02}'.format(mins_per_mile_adj, secs_per_mile_remainder_adj)
         
         # race pace format
-
+    
         secs_per_mile_adj_sl = time_in_secs_adj_sl / distance_miles
         mins_per_mile_adj_sl = (secs_per_mile_adj_sl / 60).astype(float).round(2)
         secs_per_mile_remainder_adj_sl = int(secs_per_mile_adj_sl % 60)    
         formatted_pace_adj_sl = '{:02}:{:02}'.format(mins_per_mile_adj_sl, secs_per_mile_remainder_adj_sl)
         
-        sea_level.append([index, name, formatted_date, timezone, sport_type, formatted_distance, formatted_elevation_gain,  formatted_altitude, moving_time, mins_per_mile, formatted_pace, mins_per_mile_adj_sl, formatted_pace_adj_sl, mins_per_mile_adj, formatted_pace_adj])
+        sea_level.append([index, name, formatted_date, timezone, sport_type, formatted_distance, formatted_elevation_gain,  formatted_altitude, moving_time, mins_per_mile, formatted_pace, mins_per_mile_adj_sl, formatted_pace_adj_sl, mins_per_mile_adj, formatted_pace_adj, temp, secs_per_marathon])
         
         #df_sl =  pd.concat([df2, td_adjusted], axis=1)
         
         #print(f"\nOn {formatted_date}, you {sport_type} {formatted_distance} miles with {formatted_elevation_gain} feet of gain in an average pace of {formatted_pace} per mile at {formatted_altitude} feet above sea level.")
         #print(f"An equivalent run at {altitude_race}' above sea level and {elevation_gain_race}' of gain/loss would have an estimated average pace of {td_adjusted} per mile\n")
-
+    
         distances = [1, 3.1, 6.2, 13.1, 26.2] 
-
+    
         for x in distances:
             total_time = (moving_time / distance_miles) * x
             total_time = timedelta(seconds=total_time)
@@ -146,34 +156,32 @@ def Strava_Api():
             #print(str(x) + " mile(s) in: " + str(total_time_adjusted) + " \n")
             
             
-    sea_level_df = pd.DataFrame(sea_level, columns=['Index', 'Name', 'Date', 'timezone', 'Sport Type', 'Distance', 'Elevation Gain', 'Altitude', 'Moving Time (s)', 'Pace (m)', 'Pace', 'Sea Level Pace (m)', 'Sea Level Pace', 'Race Pace (m)', 'Race Pace'])
-
+    sea_level_df = pd.DataFrame(sea_level, columns=['Index', 'Name', 'Date', 'timezone', 'Sport Type', 'Distance', 'Elevation Gain', 'Altitude', 'Moving Time (s)', 'Pace (m)', 'Pace', 'Sea Level Pace (m)', 'Sea Level Pace', 'Race Pace (m)', 'Race Pace', 'Temp', 'Marathon Time (s)'])
+    
     # Calculate marathon time for each row individually
-    sea_level_df['Marathon Time'] = sea_level_df['Race Pace'].apply(lambda x: timedelta(minutes=float(x.split(':')[0]), seconds=int(x.split(':')[1])).total_seconds() * 26.2 / 3600)
 
-    # Convert marathon time to HH:MM:SS format
-    sea_level_df['Marathon Time'] = sea_level_df['Marathon Time'].apply(lambda x: '{:02}:{:02}:{:02}'.format(int(x), int(x % 1 * 60), int(x % 1 * 60 % 1 * 60)))
+    sea_level_df['Predicted Marathon Time'] = sea_level_df['Marathon Time (s)'].apply(lambda x: '{:02}:{:02}:{:02}'.format(int(x // 3600), int((x % 3600) // 60), int(x % 60)))
 
     #Getting rid of outliers
     sea_level_df = sea_level_df[~(sea_level_df['Pace (m)'] >= 10)] 
     sea_level_df = sea_level_df[~(sea_level_df['Pace (m)'] <= 5)] 
-
+    
     sea_level_df['Pace (m)'] = sea_level_df['Pace (m)'].astype(float).round(2)
-
+    
     sea_level_df = sea_level_df.sort_values('Date')
-
+    
     # Display the resulting DataFrame
     pd.set_option('display.max_columns', None)
-
+    
     print(sea_level_df['Pace (m)'])
     print(sea_level_df['Race Pace (m)'])
     print(sea_level_df['Sea Level Pace (m)'])
-
+    
     def convert_decimal_minutes_to_mm_ss(decimal_minutes):
         minutes = int(decimal_minutes)
         seconds = int((decimal_minutes - minutes) * 60)
         return '{:02}:{:02}'.format(minutes, seconds)
-
+    
     #formatting the columns 
     sea_level_df['Pace'] = sea_level_df['Pace (m)'].apply(convert_decimal_minutes_to_mm_ss)
     sea_level_df['Race Pace'] = sea_level_df['Race Pace (m)'].apply(convert_decimal_minutes_to_mm_ss)
@@ -182,33 +190,30 @@ def Strava_Api():
     sea_level_df['Moving Time'] = sea_level_df['Moving Time (s)'].apply(lambda x: str(timedelta(seconds=int(x))))
     sea_level_df['Altitude'] = sea_level_df['Altitude'].apply(lambda x: '{:,.0f}\''.format(float(x)))
     sea_level_df['Elevation Gain'] = sea_level_df['Elevation Gain'].apply(lambda x: '{:,.0f}\''.format(float(x)))
-    sea_level_df['City'] = sea_level_df['timezone'].apply(lambda x: x.split('/')[1] if '/' in x else x)
+    sea_level_df['Location'] = sea_level_df['timezone'].apply(lambda x: x.split('/')[1] if '/' in x else x)
     sea_level_df.drop('timezone', axis=1, inplace=True)
-
+    
     print(sea_level_df)
-
+    
     print("Last Run:\n")
-
-    print(sea_level_df.iloc[-13][['Date', 'City', 'Distance', 'Moving Time', 'Altitude', 'Elevation Gain',  
-                                   'Pace', 'Sea Level Pace', 'Race Pace']])
-
+    
+    print(sea_level_df.iloc[-1][['Date', 'Location', 'Distance', 'Moving Time', 'Altitude', 'Elevation Gain',  
+                                   'Pace', 'Sea Level Pace', 'Race Pace', 'Predicted Marathon Time']])
+    
     plt.plot(sea_level_df['Date'], sea_level_df['Pace (m)'], label = 'Pace', color = "black")
     plt.plot(sea_level_df['Date'], sea_level_df['Sea Level Pace (m)'], '-.', label = 'Sea Level Pace', color = "green")
     plt.plot(sea_level_df['Date'], sea_level_df['Race Pace (m)'], '-.', label = 'Race Pace', color = 'red')
     plt.axhline(y=6.866, color='blue', linestyle='-', label = 'BQ Pace')
     plt.xticks(rotation=90, ha='right')
-
+    
     plt.xlabel("Date")
     plt.ylabel("Mins / Mile")
-
+    
     # Show legend
     plt.legend()
-
+    
     # Show the plot
     plt.show()
-
-
-#%%
 
 from datetime import timedelta
 import tkinter as tk
@@ -346,16 +351,16 @@ def Manual_Calc():
             if self.run_type_race == 'OAB':
                 slope_sec_race = average_slope_race * 12
             elif self.run_type_race == 'OW' and self.elevation_gain_race < 0:
-                slope_sec_race = average_slope_race * 10
+                slope_sec_race = average_slope_race * -10
             elif self.run_type_race == 'OW' and self.elevation_gain_race >= 0:
-                slope_sec_race = average_slope_race * 20     
+                slope_sec_race = average_slope_race * -20     
                 
             if self.altitude_race < 3000:
                 altitude_race = 3000
             elif self.altitude_race >= 3000:
                 altitude_race = self.altitude_race
             
-            time_in_secs_adj = total_time_secs  - ((((altitude - altitude_race) / 1000)*4)*self.distance) - ((slope_sec_run)*self.distance) + (slope_sec_race * self.distance)        
+            time_in_secs_adj = total_time_secs  - ((((altitude - altitude_race) / 1000)*4)*self.distance) - ((slope_sec_run)*self.distance) - (slope_sec_race * self.distance)        
             
             td_adjusted = timedelta(seconds=time_in_secs_adj/self.distance)
             
