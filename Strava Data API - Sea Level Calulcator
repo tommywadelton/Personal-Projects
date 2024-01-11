@@ -91,6 +91,8 @@ def Strava_Api():
            
         average_slope = ((float(elevation_gain) / float(distance_miles))) * .018916
         average_slope = float(average_slope)
+
+        altitude_adj = 0
         
         if elevation_gain < 0:
             slope_sec_run = average_slope * 10
