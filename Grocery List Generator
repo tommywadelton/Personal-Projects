@@ -1,0 +1,257 @@
+#Grocery List Generator
+#I have a big list of recipes that I like to cook as well as what I have currently in my inventory
+#The script pops up a GUI where I select the recipes/items I want to get at the store, it goes through what I have on hand, and the emails me a master list for my groceries
+#I like these ~100-200 line code projects that solve a simple problem I have or makes something easier for me
+
+def Grocery_List():
+    import tkinter as tk
+    from tkinter import messagebox
+    from tkinter import ttk
+    import smtplib
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+    
+    # Recipes    
+    recipes = {
+        #Random Online
+        'Red Lentil Dal': {'Olive Oil': 1, 'Yellow Onion': 1, 'Garlic': 8, 'Ginger': 1, 'Garam Masala': 1, 'Turmeric': 1,'Coriander': 1, 'Cumin': 1, 'Paprika': 1 , 'Cinnamon':1,'Red Lentils': 1.5, 'Canned Diced Tomatoes': 1,'Coconut Milk': 1, 'Broth': 3, 'Salt': 1,'Lemon Juice': 1, 'Green Chili': 1}
+        ,'Easy Chana Masala': {'Neutral Oil': 3, 'Yellow Onion': 1, 'Cumin': 1, 'Salt': 0.75, 'Garlic': 6, 'Ginger': 2, 'Cilantro': 0.5, 'Jalapenos': 3, 'Coriander': 1, 'Chili Powder': 1, 'Turmeric': 1, 'Crushed Tomatoes': 1, 'Chickpeas': 2, 'Garam Masala': 1, 'Sugar': 2-3, 'Lemon Juice': 2}
+        
+        #Budget Bytes
+        ,'Sheet Pan Portobello Fajitas': {'Chili Powder': 1, 'Chipotle Powder': 1, 'Onion Powder': 1,'Cumin': 1, 'Garlic Powder': 1, 'Sugar': 1, 'Salt': 1,'Portobello Mushroom Caps': 2, 'Red Bell Peppers': 2, 'Yellow Onion': 2,'Olive Oil': 3, 'Flour Tortillas': 8, 'Avocado': 1,'Cilantro': 1, 'Fresh Lime': 1}
+        ,'Coconut Curry Chickpeas': {'Yellow Onion': 1, 'Garlic': 2, 'Ginger': 1, 'Olive Oil': 2, 'Curry Powder': 4.5, 'Cumin': 1, 'Chickpeas': 2, 'Tomato Sauce': 1, 'Coconut Milk': 1, 'Kale': 4}
+        ,'Vegan White Chickpea Chili': {'Olive Oil': 1, 'Yellow Onion': 1, 'Red Bell Pepper': 1, 'Jalapeno': 1, 'Garlic': 5, 'Ground Cumin': 1.5, 'Chili Powder': 1, 'Ground Coriander': 1, 'Dried Oregano': 1, 'Garbanzo Beans': 2, 'Pinto Beans': 1, 'Salsa Verde': 16, 'Coconut Milk': 13.5, 'Vegetable Broth': 2, 'Lime Juice': 1}
+        
+        #Rainbow Plant Life
+        ,'Lemony Chickpea Soup': {'Long Grain White Rice': .33, 'Olive Oil': .25, 'Carrots': 4,  'Yellow Onion': 1,    'Kosher Salt': 1, 'Black Pepper': 1, 'Chickpeas': 2,    'Dill': 3/4,     'Garlic': 5,     'Tomato Paste': 2,    'Oregano': 2,     'Coriander': 1/2,     'Turmeric': 1/2,     'Red Pepper Flakes': .5,    'Broth': 4,    'Baby Spinach': 3,     'Creamy Unsweetened Plant-Based Milk': 1/2,    'Lemon': 1,     'Nutritional Yeast': 1/4, 'White Miso': 1}
+        
+        #Moms recipes
+       ,'Berry Smoothie' :{'Frozen Berry Mix': 1, 'Banana': 1, 'Vanilla Cashew Milk': 1}
+        ,'Cream of Brocolli Soup': {'Brocolli': 1, 'Broth': 4, 'Cream of Mushroom Soup': 1, 'Pepper': .25, 'Nutmeg': .125, 'Whipping Cream': 1, 'Corn Starch': 2}
+        ,'Goulash': {'Elbow Macaroni': 1, 'Beyond Hamburger': 1, 'Yellow Onion': 1, 'Tomato Soup': 1}
+        ,'Guacamole': {'Avocado': 6, 'Roma Tomatoes': 4, 'Lemon': 1, 'Garlic': 4, 'Jalapeno': 1}
+        ,'Peanut Pasta': {'Peanut Butter': 1.33, 'Coconut milk': 12, 'Soy Sauce': 6, 'Brown Sugar': 7.5, 'Sherry': 3, 'Garlic': 5, 'Red Pepper Flakes': .75, 'Salt': .375, 'Red Bell Pepper': 2, 'Yellow Bell Pepper': 1, 'Cucumber': 1, 'Asparagus': 1, 'Green Onion': 1, 'Olive Oil': 1, 'Spaghetti': 1, 'Parsley': 2} #TBSP       
+        ,'Vodka Pasta': {'Butter': 4, 'Heavy Cream': 1, 'Tomato Paste': 1, 'Vodka': .33, 'Basil': 2, 'Red Pepper Flakes': .25, 'Salt': 1, 'Penne Pasta': 1, 'Parmesan Cheese': .5}
+        ,'Sweet Potato Tacos': {'Sweet Potatoes': 4, 'Salt': 1, 'Cumin': 1, 'Garlic Powder': .5, 'Onion Powder': .5, 'Chili Powder': 4, 'Paprika': .5, 'Tortillas': 12, 'Black beans': 1, 'Greek Yogurt': 1, 'Lime': 1}
+        ,'Tacos': {'Beyond Hamburger': 1, 'Taco Seasoning': 12, 'Black Beans': 1, 'Diced Tomatoes': 1, 'Tomato Sauce': 1, 'Corn Kernels': 1}
+        ,'Pizza (dough from scratch)':{'Active Dry Yeast': 1.5, 'Sugar': 10.5, 'Olive Oil': 2, 'Salt': 4.5, 'All Purpose Flour': 375, 'Red Bell Pepper': 1, 'Red Onion': 1, 'Pineapple': 1, 'Pizza Sauce': 1}
+        
+        #Sourdough
+        ,'Sourdough': {'Whole Wheat Flour': 150, 'Salt': 2, 'All Purpose Flour': 50, 'Bread Flour': 1206}
+        ,'Cheddar Jalapeno Sourdough': {'Jalapeno': 3, 'Cheddar Cheese': 8,'Whole Wheat Flour': 150, 'Salt': 2, 'All Purpose Flour': 50, 'Bread Flour': 1206}
+        
+        #Other
+        ,'Coffee': {'Coffee': 1}
+        ,'Snacks': {'Nuts': 1, 'Chips': 1, 'Bitchin Sauce and Pita Chips': 1, 'Peanut Butter Pretzels': 1, 'Other Snacks': 1}
+        
+        #Household Items
+        ,'Toilet Paper': {'Toilet Paper': 1}
+        ,'Cleaning Wipes': {'Cleaning Wipes': 1}
+        ,'Shampoo': {'Shampoo': 1}
+        ,'Conditioner': {'Conditioner': 1}
+        ,'Body Wash': {'Body Wash': 1}
+        ,'Glade Scents': {'Glade Scents': 1}
+        }
+    
+#Spices quantities are in teaspoons, the quantities are estimates from what I currently have
+    current_inventory = {
+        'spices': {'Basil' : 1
+                   , 'Cayenne': 7
+                   , 'Cinnamon': 7
+                   , 'Chili Powder' : 3
+                   , 'Coriander' : 6
+                   , 'Cumin': 6
+                   , 'Curry Powder': 3
+                   , 'Bagel Seasoning': 3
+                   , 'Garam Masala': 5
+                   , 'Garlic Powder': 5
+                   , 'Ground Nutmeg': 7
+                   , 'Red Pepper Flakes': 15
+                   , 'Oregano': 2
+                   , 'Onion Powder': 4
+                   , 'Paprika': 7
+                   , 'Rosemary': 7
+                   , 'Sage': 7
+                   , 'Turmeric': 6
+                   , 'Sesame Seeds': 1
+                   , 'Salt': 48
+                   , 'Pepper': 50
+                   , 'Sugar': 49
+                   , 'Brown Sugar': 13
+                   },
+        'produce': {'Yellow Onion': 1
+                    , 'Garlic': 2
+                    , 'Avocado': 15
+                    , 'Kale': 1
+                   },
+        'sauces': {'Balsamic Vinegar': 1
+                   , 'Worcestershire': 1
+                   , 'Jelly': 3
+                   , 'Garlic': 115
+                   , 'Ketchup': 1
+                   , 'Simple Syrup': 1
+                   , 'Tomato Sauce': 0
+                   , 'Soy Sauce': 4 #TBSPs
+                   ,'Sherry': 7 #Ounces
+                   , 'Dijon Mustard': 1
+                   , 'Lime Juice': 5
+                   , 'Broth': 1
+                   },
+        'cans': {'Chickpeas': 2},
+        'random': {'Coconut milk': 0
+                   , 'Tofu': 2
+                   , 'Heavy Cream': 1
+                   , 'Sour Cream': 1
+                   , 'Kimchi': 1
+                   , 'Syrup': 2
+                   , 'Club Soda': 1
+                   , 'Butter': 20 #TBSPs
+                   , 'Chipotle Peppers': 1
+                   , 'Cheese': 16 #ounces
+                   , 'Lemon': 1
+                   , 'Hot Sauce': 10 
+                   , 'Pancake Batter': 1
+                   , 'Flour Tortillas': 0
+                   , 'Brown Lentils': 1
+                   , 'Olive Oil': 46
+                   ,'Peanut Butter': 25
+                   ,'Coffee': 60
+                   ,'Rice': 200
+                   },
+        'snacks': {'Jalapeno Chips': 1
+                   ,'Tostitos': 1
+                   , 'Cookies': 0
+                   ,'Oatmeal': 1
+                   ,'Nuts': 1
+                   ,'Popcorn': 1},
+        'flour': {'All Purpose': 5000
+                  ,'Bread Flour': 1475
+                  ,'Whole Wheat': 700
+                  ,'Gluten Flour': 580
+            },
+        'freezer': {'Ginger': 10
+                    ,'Sourdough': 1
+                    ,'Frozen Veggies': 1
+                    ,'Bagels': 2
+                    ,'Pizza Sauce': 1
+            }
+        ,'Househould Items': {'Laundry Detergent': 1
+                              ,'Shampoo': 1
+                              ,'Conditioner': 1
+            
+            }
+    }
+    
+    # Initialize tkinter
+    root = tk.Tk()
+    root.title("Recipe Selector")
+    
+    # Function to send email
+    def send_email():
+        selected_recipes = [list(recipes.keys())[i] for i, var in enumerate(recipe_vars) if var.get()]
+        
+        # Create a copy of the current inventory to avoid modifying it directly
+        updated_inventory = current_inventory.copy()
+        
+        # Initialize an empty shopping list
+        shopping_list = {}
+        
+        used_inventory = {}
+        
+        # Iterate through selected recipes to check inventory and update the shopping list
+        for recipe_name in selected_recipes:
+            for item, quantity in recipes[recipe_name].items():
+                # Check if the item is in any category of current inventory
+                found = False
+                for category_name, category in updated_inventory.items():
+                    if item in category and category[item] >= quantity:
+                        # Check if there are enough items in inventory
+                        if category[item] >= quantity:
+                            used_quantity = min(quantity, category[item])  # Calculate used quantity
+                            if item in used_inventory:
+                                used_inventory[item] += used_quantity
+                            else:
+                                used_inventory[item] = used_quantity
+                            category[item] -= used_quantity
+                            found = True
+                            break  # Exit the loop if the item is found and processed
+                if not found:
+                    if item in shopping_list:
+                        shopping_list[item] += quantity
+                    else:
+                        shopping_list[item] = quantity
+        
+        # Filter out items from the shopping list that are already available in the updated inventory
+        for item, quantity in shopping_list.items():
+            for category_name, category in updated_inventory.items():
+                if item in category and category[item] > 0:
+                    shopping_list[item] -= min(quantity, category[item])
+        
+        # Prepare email content
+        subject = 'Shopping List and Recipes'
+        selected_recipes_text = "\nRecipes:\n" + "\n".join(selected_recipes)
+        shopping_list_text = "Shopping List:\n" + "\n".join([f"{quantity} {item}" for item, quantity in shopping_list.items()])
+        used_inventory_text = "Items used from Current Inventory:\n"
+        for item, quantity in used_inventory.items():
+            used_inventory_text += f"{quantity} {item}\n"
+        body = selected_recipes_text + "\n\n" + shopping_list_text + "\n\n" + used_inventory_text
+
+
+    
+        # Create a MIME multipart message
+        message = MIMEMultipart()
+        message['From'] = sender_email_entry.get()
+        message['To'] = receiver_email_entry.get()
+        message['Subject'] = subject
+    
+        # Attach the body to the message
+        message.attach(MIMEText(body, 'plain'))
+    
+        # Connect to SMTP server
+        with smtplib.SMTP('smtp.office365.com', 587) as server:
+            server.starttls()  # Start TLS encryption
+            # Login to SMTP server
+            server.login(sender_email_entry.get(), sender_password_entry.get())
+            
+            # Send the email
+            server.send_message(message)
+    
+        messagebox.showinfo("Email Sent", "Shopping list sent successfully!")
+        
+        #print(updated_inventory)
+        
+    # GUI elements
+    tk.Label(root, text="Select Recipes:").grid(row=0, column=0, padx=10, pady=5)
+    
+    recipe_vars = []
+    for i, recipe_name in enumerate(recipes):
+        var = tk.BooleanVar()
+        ttk.Checkbutton(root, text=recipe_name, variable=var).grid(row=i+1, column=0, padx=10, pady=5, sticky="w")
+        recipe_vars.append(var)
+    
+    default_sender_email = "tommywadelton@outlook.com"
+    default_receiver_email = "tommywadelton@outlook.com"
+    
+    # GUI elements
+    tk.Label(root, text="Sender Email:").grid(row=len(recipes)+1, column=0, padx=10, pady=5)
+    sender_email_entry = tk.Entry(root)
+    sender_email_entry.insert(0, default_sender_email)  # Insert default sender email
+    sender_email_entry.grid(row=len(recipes)+1, column=1, padx=10, pady=5)
+    
+    tk.Label(root, text="Sender Password:").grid(row=len(recipes)+2, column=0, padx=10, pady=5)
+    sender_password_entry = tk.Entry(root, show="*")
+    sender_password_entry.grid(row=len(recipes)+2, column=1, padx=10, pady=5)
+    
+    tk.Label(root, text="Receiver Email:").grid(row=len(recipes)+3, column=0, padx=10, pady=5)
+    receiver_email_entry = tk.Entry(root)
+    receiver_email_entry.insert(0, default_receiver_email)  # Insert default receiver email
+    receiver_email_entry.grid(row=len(recipes)+3, column=1, padx=10, pady=5)
+    
+    send_button = tk.Button(root, text="Send Email", command=send_email)
+    send_button.grid(row=len(recipes)+4, column=0, columnspan=2, padx=10, pady=10)
+    
+    # Start GUI main loop
+    root.mainloop()
+    
+
+Grocery_List()
