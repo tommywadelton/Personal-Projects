@@ -1,3 +1,15 @@
+#################################################################################################################
+#Motivation
+#I wrote this code to calculate the estimated carbon footprint of a flight and how much I need to donate to offset that amount
+#I am an avid traveler, but also am big on trying to find ways to fight climate change
+#I like practical scripts like this that give me an actionable answer to a question I have
+
+#Research
+#My C02 estimates are based on my research online
+#It assumes that the plane is a 747 or of similar size
+# The KG of C02 per flight are pretty close to what you see on google flights
+#A mature tree will offset about 20 kg of C02 / year
+
 ################################################################################################
 #Example of the output:
     
@@ -27,17 +39,6 @@
 #I need to donate $181.90 to offset my total C02 contribution.
 #In Total, I have traveleled 29281 miles during 10 trips
 
-#################################################################################################################
-#Motivation
-#I wrote this code to calculate the estimated carbon footprint of a flight and how much I need to donate to offset that amount
-#I am an avid traveler, but also am big on trying to find ways to fight climate change
-#I like practical scripts like this that give me an actionable answer to a question I have
-
-#Research
-#My C02 estimates are based on my research online
-#It assumes that the plane is a 747 or of similar size
-# The KG of C02 per flight are pretty close to what you see on google flights
-#A mature tree will offset about 20 kg of C02 / year
 
 #CODE
 #################################################################################################################
