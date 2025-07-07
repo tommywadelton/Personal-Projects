@@ -44,186 +44,223 @@
 #CODE
 #################################################################################################################
 #import packages
-
 import pandas as pd
 from math import radians, sin, cos, sqrt, atan2
 
-#the excel sheet contains information on trips I have taken (starting/ending location, date, and the lat/long of each corresponding airport)
-#Sample data in the excel sheet is in this format:
-#Trip	Date	 Starting Location City Name	Starting Location Code	Layover	Ending Location City Name	Ending Location Code	Roundtrip	Starting_Lat	Starting_Long	Layover_Lat	Layover_Long	Ending_Lat	Ending_Long
-#1	  08/25/2023	      Denver	                   DEN	                  N	           Indianapolis	         IND	               Y	     39.86166667	-104.6731667	      0	        0	        39.71730556	-86.29463889
-
-df = pd.read_excel('C:\\Users\\twadel816\\Downloads\\US_Airport_Data.xlsx', sheet_name='Travel_to_Date')
+df = pd.read_excel('/Users/tommywadelton/Documents/US_Airport_Data.xlsx', sheet_name='Travel_to_Date')
 
 df['Date'] = pd.to_datetime(df['Date'])
 
-
-distances_2023 = []  # List to store 2023 distances
-distances_2024 = []  # List to store 2024 distances
+# Initialize lists to store distances and donations
+distances_2023 = []
+distances_2024 = []
+distances_2025 = []
 
 df_2023 = df.where(df['Year'] == 2023).dropna()
 df_2024 = df.where(df['Year'] == 2024).dropna()
+df_2025 = df.where(df['Year'] == 2025).dropna()
+
+donations_2023 = []
+donations_2024 = []
+donations_2025 = []
+
+# Initialize counters for total calculations
+global total_trips_taken
+total_trips_taken = 0
+total_distance_traveled = 0
+total_carbon_footprint = 0
+total_flights_taken = 0
+total_flights_taken_2023 = 0
+total_flights_taken_2024 = 0
+total_flights_taken_2025 = 0
+total_amount_donated = 0
+donation_amount_remaining = 0
+total_trees_planted = 0
 
 
+# Calculate distances for trips
 for trip in df['Trip']:
-    if df.iloc[int(trip) - 1]['Roundtrip'] == 'Y' and df.iloc[int(trip) - 1]['Year'] == 2023:
-        #calculate the distance between the two airports in km's
-        #This takes the lat/long of the starting and ending location, turns them into radians, and then calculates the distance between those 2 locations
-        #It is an approximation, because the calculation takes the straight line distance between the two
-        #It does not take into account the actual flight path taken
-        #Distance is in KM's, converted to miles later
-        
-        R = 6373.0
-        lat1 = radians(df.iloc[int(trip) - 1]['Starting_Lat'])
-        lon1 = radians(df.iloc[int(trip) - 1]['Starting_Long'])
-        lat2 = radians(df.iloc[int(trip) - 1]['Ending_Lat'])
-        lon2 = radians(df.iloc[int(trip) - 1]['Ending_Long'])
-        
-        dlon = lon2 - lon1
-        dlat = lat2 - lat1
-        
-        a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
-        c = 2 * atan2(sqrt(a), sqrt(1 - a))
-        
-        distance = R * c
-        #multiplied by 2 for roundtrip
-        
-        distance = round(distance, 0) * 2
+    year = df.iloc[int(trip) - 1]['Year']
+    roundtrip = df.iloc[int(trip) - 1]['Roundtrip']
+    lat1 = radians(df.iloc[int(trip) - 1]['Starting_Lat'])
+    lon1 = radians(df.iloc[int(trip) - 1]['Starting_Long'])
+    lat2 = radians(df.iloc[int(trip) - 1]['Ending_Lat'])
+    lon2 = radians(df.iloc[int(trip) - 1]['Ending_Long'])
+    
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    
+    a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
+    c = 2 * atan2(sqrt(a), sqrt(1 - a))
+    
+    distance = 6373.0 * c  # Radius of the Earth in km
+    distance = round(distance, 0) * (2 if roundtrip == 'Y' else 1)
+    
+    if year == 2023:
         distances_2023.append(distance)
-    
-    elif df.iloc[int(trip) - 1]['Roundtrip'] == 'N' and df.iloc[int(trip) - 1]['Year'] == 2023:
-        R = 6373.0
-        lat1 = radians(df.iloc[int(trip) - 1]['Starting_Lat'])
-        lon1 = radians(df.iloc[int(trip) - 1]['Starting_Long'])
-        lat2 = radians(df.iloc[int(trip) - 1]['Ending_Lat'])
-        lon2 = radians(df.iloc[int(trip) - 1]['Ending_Long'])
-        
-        dlon = lon2 - lon1
-        dlat = lat2 - lat1
-        
-        a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
-        c = 2 * atan2(sqrt(a), sqrt(1 - a))
-        
-        distance = R * c
-        distance = round(distance, 0) * 1
-        distances_2023.append(distance)
-        
-    elif df.iloc[int(trip) - 1]['Roundtrip'] == 'Y' and df.iloc[int(trip) - 1]['Year'] == 2024:
-        #calculate the distance between the two airports in km's
-        #This takes the lat/long of the starting and ending location, turns them into radians, and then calculates the distance between those 2 locations
-        #It is an approximation, because the calculation takes the straight line distance between the two
-        #It does not take into account the actual flight path taken
-        
-        R = 6373.0
-        lat1 = radians(df.iloc[int(trip) - 1]['Starting_Lat'])
-        lon1 = radians(df.iloc[int(trip) - 1]['Starting_Long'])
-        lat2 = radians(df.iloc[int(trip) - 1]['Ending_Lat'])
-        lon2 = radians(df.iloc[int(trip) - 1]['Ending_Long'])
-        
-        dlon = lon2 - lon1
-        dlat = lat2 - lat1
-        
-        a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
-        c = 2 * atan2(sqrt(a), sqrt(1 - a))
-        
-        distance = R * c
-        #multiplied by 2 for roundtrip
-        
-        distance = round(distance, 0) * 2
+        total_flights_taken_2023 += 2 if roundtrip == 'Y' else 1
+    elif year == 2024:
         distances_2024.append(distance)
+        total_flights_taken_2024 += 2 if roundtrip == 'Y' else 1
+    elif year == 2025:
+        distances_2025.append(distance)
+        total_flights_taken_2025 += 2 if roundtrip == 'Y' else 1
     
-    elif df.iloc[int(trip) - 1]['Roundtrip'] == 'N' and df.iloc[int(trip) - 1]['Year'] == 2024:
-        R = 6373.0
-        lat1 = radians(df.iloc[int(trip) - 1]['Starting_Lat'])
-        lon1 = radians(df.iloc[int(trip) - 1]['Starting_Long'])
-        lat2 = radians(df.iloc[int(trip) - 1]['Ending_Lat'])
-        lon2 = radians(df.iloc[int(trip) - 1]['Ending_Long'])
-        
-        dlon = lon2 - lon1
-        dlat = lat2 - lat1
-        
-        a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
-        c = 2 * atan2(sqrt(a), sqrt(1 - a))
-        
-        distance = R * c
-        distance = round(distance, 0) * 1
-        distances_2024.append(distance)
+    # Update total flights taken
+    total_flights_taken += 2 if roundtrip == 'Y' else 1
 
-# Now you can use the distances list outside of the loop
-for trip, (distance, start, end, date, trip) in enumerate(zip(distances_2023, df_2023['Starting Location City Name'], df_2023['Ending Location City Name'], df_2023['Date'], df_2023['Trip']), start=1):
-    carbon_calc = distance * .07705
-    distance_miles = distance * .62
-    carbon_calc = int(carbon_calc)
-    #Based on my online resarch, this is an estimate of the C02 offset between trees planted and distance traveled
-    #A mature tree will offset about 20 kg of C02 / year
+# Calculate donations and print trip information
+
+print("2023:\n")
+for index, (trip_num, distance, start, end, date, donated) in enumerate(zip(df_2023['Trip'], distances_2023, df_2023['Starting Location City Name'], df_2023['Ending Location City Name'], df_2023['Date'], df_2023['Donated']), start=1):
+    trip_num = int(trip_num)
+    carbon_calc = int(distance * .07705)
+    distance_miles = int(distance * .62)
     trees = carbon_calc / 20
-    #teamtrees.org donates a tree per dollar
-    #I currently donate with Wren as they are a little more well known for their environmental impacts
-    #Turns the calculation into a dollar format
+    trees_dollars = round(trees, 2)
     
-    trip = int(trip)
-    trees_dollars = "${:,.2f}".format(trees)
     formatted_date = date.strftime("%m/%d/%Y")
- 
-    print(f"Trip #{trip}: {start} to {end} on {formatted_date}, {distance_miles} miles, produced {carbon_calc}kg of C02. I need to donate {trees_dollars} to offset this amount")
+    
+    if donated == 'Y':
+        total_amount_donated += trees_dollars
+        total_trees_planted += trees
+        print(f"Trip #{trip_num}: {start} to {end} on {formatted_date}, {distance_miles} miles, produced {carbon_calc} kg of CO2\nAmount donated: ${trees_dollars:,.2f}\n")
+    else:
+        donation_amount_remaining += trees_dollars
+        print(f"Trip #{trip_num}: {start} to {end} on {formatted_date}, {distance_miles} miles, produced {carbon_calc} kg of CO2. I need to donate ${trees_dollars:,.2f} to offset this amount.\n")
+    
+    # Update total calculations
+    total_trips_taken += 1
+    total_distance_traveled += distance_miles
+    total_carbon_footprint += carbon_calc
 
-for trip, (distance, start, end, date, trip) in enumerate(zip(distances_2024, df_2024['Starting Location City Name'], df_2024['Ending Location City Name'], df_2024['Date'], df_2024['Trip']), start=1):
-    carbon_calc = distance * .07705
-    distance_miles = distance * .62
-    carbon_calc = int(carbon_calc)
-    #Based on my online resarch, this is an estimate of the C02 offset between trees planted and distance traveled 
+print("2024:\n")
+
+for index, (trip_num, distance, start, end, date, donated) in enumerate(zip(df_2024['Trip'], distances_2024, df_2024['Starting Location City Name'], df_2024['Ending Location City Name'], df_2024['Date'], df_2024['Donated']), start=1):
+    trip_num = int(trip_num)
+    carbon_calc = int(distance * .07705)
+    distance_miles = int(distance * .62)
     trees = carbon_calc / 20
-    #teamtrees.org donates a tree per dollar
-    #I currently donate with Wren as they are a little more well known for their environmental impacts
-    #Turns the calculation into a dollar format
+    trees_dollars = round(trees, 2)
     
-    trees_dollars = "${:,.2f}".format(trees)
     formatted_date = date.strftime("%m/%d/%Y")
-    trip = int(trip)
- 
-    print(f"Trip #{trip}: {start} to {end} on {formatted_date}, {distance_miles} miles, produced {carbon_calc}kg of C02. I need to donate {trees_dollars} to offset this amount")
+    
+    if donated == 'Y':
+        total_amount_donated += trees_dollars
+        total_trees_planted += trees
+        print(f"Trip #{trip_num}: {start} to {end} on {formatted_date}, {distance_miles} miles, produced {carbon_calc} kg of CO2\nAmount donated: ${trees_dollars:,.2f}\n")
+    else:
+        donation_amount_remaining += trees_dollars
+        print(f"Trip #{trip_num}: {start} to {end} on {formatted_date}, {distance_miles} miles, produced {carbon_calc} kg of CO2. I need to donate ${trees_dollars:,.2f} to offset this amount.\n")
+    
+    # Update total calculations
+    total_trips_taken += 1
+    total_distance_traveled += distance_miles
+    total_carbon_footprint += carbon_calc
 
+print("\n2025:\n")
+
+#2025
+for index, (trip_num, distance, start, end, date, donated) in enumerate(zip(df_2025['Trip'], distances_2025, df_2025['Starting Location City Name'], df_2025['Ending Location City Name'], df_2025['Date'], df_2025['Donated']), start=1):
+    trip_num = int(trip_num)
+    carbon_calc = int(distance * .07705)
+    distance_miles = int(distance * .62)
+    trees = carbon_calc / 20
+    trees_dollars = round(trees, 2)
+    
+    formatted_date = date.strftime("%m/%d/%Y")
+    
+    if donated == 'Y':
+        total_amount_donated += trees_dollars
+        total_trees_planted += trees
+        print(f"Trip #{trip_num}: {start} to {end} on {formatted_date}, {distance_miles} miles, produced {carbon_calc} kg of CO2\nAmount donated: ${trees_dollars:,.2f}\n")
+    else:
+        donation_amount_remaining += trees_dollars
+        print(f"Trip #{trip_num}: {start} to {end} on {formatted_date}, {distance_miles} miles, produced {carbon_calc} kg of CO2. I need to donate ${trees_dollars:,.2f} to offset this amount.\n")
+    
+    # Update total calculations
+    total_trips_taken += 1
+    total_distance_traveled += distance_miles
+    total_carbon_footprint += carbon_calc
+
+average_plane_speed_mph = 525
+
+# Print summary statistics for 2023
 
 total_distance_2023 = sum(distances_2023)
-distance_miles = total_distance_2023 * .62
-distance_miles = int(distance_miles)
-carbon_calc = total_distance_2023 * .07705
-carbon_calc = int(carbon_calc)
-trees = carbon_calc / 20
-trees_dollars = "${:,.2f}".format(trees)
-trip_number = int(max(df['Trip'].where(df['Year'] == 2023)))
+# Define average plane speed in miles per hour
+distance_miles_2023 = int(total_distance_2023 * .62)
+total_flight_hours_2023 = distance_miles_2023 / average_plane_speed_mph
+carbon_calc_2023 = int(total_distance_2023 * .07705)
+trees_2023 = carbon_calc_2023 / 20
+trees_dollars_2023 = round(trees_2023, 2)
+
+trip_number_2023 = len(df_2023.index)
+trip_number_2024 = len(df_2024.index)
+trip_number_2025 = len(df_2025.index)
 
 print("\n2023 Stats:")
-print(f"My total carbon Footprint from air travel in 2023 is approximately {carbon_calc} kg of C02")
-print("To offset my total C02 contribution, I need to donate " + str(trees_dollars))
-print(f"In 2023, I have traveleled {distance_miles} miles during {trip_number} trip(s)")
+print(f"My total Carbon Footprint from air travel in 2023 is approximately {carbon_calc_2023} kg of CO2")
+#print("To offset my total CO2 contribution, I need to donate ${:,.2f}".format(trees_dollars_2023))
+print(f"In 2023, I have traveled {distance_miles_2023} miles, on {total_flights_taken_2023} flights, during {trip_number_2023} trip(s)\nI spent approximately {total_flight_hours_2023:.2f} hours in the air in 2023.")
 
+# Print summary statistics for 2024
 total_distance_2024 = sum(distances_2024)
-distance_miles = total_distance_2024 * .62
-distance_miles = int(distance_miles)
-carbon_calc = total_distance_2024 * .07705
-carbon_calc = int(carbon_calc)
-trees = carbon_calc / 20
-trees_dollars = "${:,.2f}".format(trees)
-trip_number = int(max(df['Trip'])) - int(max(df['Trip'].where(df['Year'] == 2023)))
+distance_miles_2024 = int(total_distance_2024 * .62)
+total_flight_hours_2024 = distance_miles_2024 / average_plane_speed_mph
+carbon_calc_2024 = int(total_distance_2024 * .07705)
+trees_2024 = carbon_calc_2024 / 20
+trees_dollars_2024 = round(trees_2024, 2)
+
 
 print("\n2024 Stats:")
-print(f"My total carbon Footprint from air travel in 2024 is approximately {carbon_calc} kg of C02")
-print("I need to donate " + str(trees_dollars) + " to offset my 2023 total C02 contribution.")
-print(f"In 2024, I have traveleled {distance_miles} miles during {trip_number} trip(s)")
+print(f"My total Carbon Footprint from air travel in 2024 is approximately {carbon_calc_2024} kg of CO2")
+#print("I need to donate ${:,.2f} to offset my 2024 total CO2 contribution.".format(trees_dollars_2024))
+print(f"In 2024, I have traveled {distance_miles_2024} miles, on {total_flights_taken_2024} flights, during {trip_number_2024} trip(s)\nI spent approximately {total_flight_hours_2024:.2f} hours in the air in 2024.")
+
+
+total_distance_2025 = sum(distances_2025)
+distance_miles_2025 = int(total_distance_2025 * .62)
+total_flight_hours_2025 = distance_miles_2025 / average_plane_speed_mph
+carbon_calc_2025 = int(total_distance_2025 * .07705)
+trees_2025 = carbon_calc_2025 / 20
+trees_dollars_2025 = round(trees_2025, 2)
+
+
+print("\n2025 Stats:")
+print(f"My total Carbon Footprint from air travel in 2025 is approximately {carbon_calc_2025} kg of CO2")
+#print("I need to donate ${:,.2f} to offset my 2025 total CO2 contribution.".format(trees_dollars_2025))
+print(f"In 2025, I have traveled {distance_miles_2025} miles, on {total_flights_taken_2025} flights, during {trip_number_2025} trip(s)\nI spent approximately {total_flight_hours_2025:.2f} hours in the air in 2025.")
+
+
+# Print all-time statistics
+total_distance_all_time = total_distance_2023 + total_distance_2024 + total_distance_2025
+distance_miles_all_time = int(total_distance_all_time * .62)
+total_flight_hours = distance_miles_all_time / average_plane_speed_mph
+days_in_flight = total_flight_hours / 24
+times_around_earth = round(distance_miles_all_time / 24901, 2)
+carbon_calc_all_time = int(total_distance_all_time * .07705)
+trees_all_time = carbon_calc_all_time / 20
+trees_dollars_all_time = round(trees_all_time, 2)
+
+
+trip_number_all_time = int(max(df['Trip']))
 
 print("\nAll Time Stats:")
+print(f"My total Carbon Footprint from air travel is approximately {carbon_calc_all_time} kg of CO2")
+print("I need to donate ${:,.2f} to offset my total CO2 contribution.".format(trees_dollars_all_time))
+print(f"In Total, I have traveled {distance_miles_all_time} miles during {trip_number_all_time} trips")
 
-total_distance_all_Time = sum(distances_2023) + sum(distances_2024)
-distance_miles = total_distance_all_Time * .62
-distance_miles = int(distance_miles)
-carbon_calc = total_distance_all_Time * .07705
-carbon_calc = int(carbon_calc)
-trees = carbon_calc / 20
-trees_dollars = "${:,.2f}".format(trees)
-trip_number = int(max(df['Trip']))
+# Print total amount donated and remaining amount needed to donate
+print("\nTotal Amount Donated: ${:,.2f}".format(total_amount_donated))
+print("Donation Amount Remaining: ${:,.2f}".format(donation_amount_remaining))
 
-print(f"My total carbon Footprint from air travel is approximately {carbon_calc} kg of C02")
-print("I need to donate " + str(trees_dollars) + " to offset my total C02 contribution.")
-print(f"In Total, I have traveleled {distance_miles} miles during {trip_number} trips") 
+# Print total trees planted, total trips taken, total distance traveled, and total flights taken
+print(f"Total Trees Planted: {int(total_trees_planted)}")
+print(f"Total Trips Taken: {total_trips_taken}")
+print(f"Total Flights Taken: {total_flights_taken}")
+print(f"Total Flight Hours: {total_flight_hours:.2f}")
+print(f"Total Days in Flight since 2023: {days_in_flight:.2f}")
+print(f"Total Distance Traveled: {total_distance_traveled} miles, which is equivalent to flying around the Earth {times_around_earth} times. ")
+print(f"Total Carbon Footprint: {total_carbon_footprint} kg of CO2")
 
