@@ -1,0 +1,367 @@
+def Sweet_Treet():
+    from selenium import webdriver
+    from selenium.webdriver.chrome.service import Service
+    from selenium.webdriver.chrome.options import Options
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.common.keys import Keys
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    import time
+    import os
+    import requests
+    from urllib.parse import urlparse
+    from datetime import datetime
+    import base64
+    from PIL import Image, ExifTags
+    from PIL.ExifTags import TAGS, GPSTAGS
+    import folium
+    from folium import IFrame
+    from branca.element import Element
+    import schedule
+
+    os.chdir('/Users/tommywadelton/Documents')
+
+    Shared_Album_images = 'https://www.icloud.com/sharedalbum/#B2KGWZuqDG1VWyU'
+    path = '/System/Volumes/Data/Users/tommywadelton/.wdm/drivers/chromedriver/mac64/140.0.7339.82/chromedriver-mac-arm64/chromedriver'
+    DOWNLOAD_DIR = "/Users/tommywadelton/Sweet Treets/Trees"
+    
+    # CONFIGURATION
+    SHARED_ALBUM_URL = Shared_Album_images
+    CHROMEDRIVER_PATH = path  # Update with your actual path
+    DOWNLOAD_DIR = DOWNLOAD_DIR
+    SCROLL_PAUSE = 10  # Time to wait after each scroll
+    MAX_SCROLLS = 50  # Maximum number of scrolls to attempt
+    MAX_RETRIES = 5
+    
+    options = Options()
+    options.add_argument('--headless')
+    options.add_argument('--disable-gpu')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--window-size=1920,1080')
+    service = Service(executable_path=CHROMEDRIVER_PATH)
+    driver = webdriver.Chrome(service=service, options=options)
+    
+    import shutil
+    
+    # Clear the download directory before saving new images
+    if os.path.exists(DOWNLOAD_DIR):
+        for filename in os.listdir(DOWNLOAD_DIR):
+            file_path = os.path.join(DOWNLOAD_DIR, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print(f"Failed to delete {file_path}. Reason: {e}")
+                
+    print("Image File Path Cleared")
+
+    
+    def wait_for_elements(driver, timeout=30):
+        """Waits for photo grid items to appear."""
+        WebDriverWait(driver, timeout).until(
+            EC.presence_of_all_elements_located((By.CLASS_NAME, 'x-stream-photo-grid-item-view'))
+        )
+    
+    try:
+        driver.get(SHARED_ALBUM_URL)
+        time.sleep(5)  # Initial wait
+    
+        image_urls = set()
+        scroll_count = 0
+        previous_count = 0
+        retry_attempts = 0
+
+        print("Gathering Photos from iCloud")
+        while scroll_count < MAX_SCROLLS:
+            # Scroll down using keyboard
+            body = driver.find_element(By.TAG_NAME, "body")
+            body.send_keys(Keys.PAGE_DOWN)
+            time.sleep(SCROLL_PAUSE)
+            scroll_count += 1
+    
+            # Wait for photo grid items
+            wait_for_elements(driver)
+    
+            # Extract image URLs from <img> tags
+            imgs = driver.find_elements(By.TAG_NAME, "img")
+            for img in imgs:
+                src = img.get_attribute("src")
+                if src and src.startswith("http"):
+                    image_urls.add(src)
+    
+            # Extract image URLs from inline styles (e.g., background-image)
+            divs = driver.find_elements(By.CLASS_NAME, "x-stream-photo-grid-item-view")
+            for div in divs:
+                style = div.get_attribute("style")
+                if style and "url(" in style:
+                    start = style.find("url(") + 4
+                    end = style.find(")", start)
+                    url = style[start:end].strip('"').strip("'")
+                    if url.startswith("http"):
+                        image_urls.add(url)
+    
+            #print(f"Scroll {scroll_count}: Found {len(image_urls)} unique image URLs.")
+    
+            # Check for new images
+            if len(image_urls) == previous_count:
+                retry_attempts += 1
+                #print(f"No new images. Retry {retry_attempts}/{MAX_RETRIES}")
+                if retry_attempts >= MAX_RETRIES:
+                    print(f"{len(image_urls)} photos gathered")
+                    break
+            else:
+                retry_attempts = 0
+    
+            previous_count = len(image_urls)
+    
+        # Save images
+        os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+        for idx, url in enumerate(image_urls):
+            try:
+                parsed = urlparse(url)
+                ext = os.path.splitext(parsed.path)[1] or '.jpg'
+                filename = f"img_{idx}{ext}"
+                filepath = os.path.join(DOWNLOAD_DIR, filename)
+                if os.path.exists(filepath):
+                    continue
+                response = requests.get(url, timeout=10)
+                if response.status_code == 200:
+                    with open(filepath, "wb") as f:
+                        f.write(response.content)
+                    print(f"Downloaded {filename}")
+                else:
+                    print(f"Failed to download {filename}: status {response.status_code}")
+            except Exception as e:
+                print(f"Error downloading image {idx}: {e}")
+    
+    finally:
+        driver.quit()
+    
+    # === Folder paths ===
+    image_folder = "/Users/tommywadelton/Sweet Treets/Trees"
+    resized_folder = "/Users/tommywadelton/Sweet Treets/Resized"
+    html_folder = "/Users/tommywadelton/Sweet Treets/HTML"
+    
+    os.makedirs(resized_folder, exist_ok=True)
+    os.makedirs(html_folder, exist_ok=True)
+    
+    # === GPS extraction ===
+    def get_gps_from_exif(image_path):
+        try:
+            with Image.open(image_path) as img:
+                exif_data = img._getexif()
+        except Exception as e:
+            print(f"Error opening image: {e}")
+            return None
+    
+        if not exif_data:
+            print(f"No EXIF data found in {image_path}")
+            return None
+    
+        gps_info = {}
+        date_taken = None
+    
+        for tag, value in exif_data.items():
+            decoded = TAGS.get(tag, tag)
+            if decoded == "GPSInfo":
+                for gps_tag, gps_value in value.items():
+                    decoded_gps = GPSTAGS.get(gps_tag, gps_tag)
+                    gps_info[decoded_gps] = gps_value
+            elif decoded == "DateTimeOriginal":
+                date_taken = value
+    
+        #print(f"GPSInfo for {image_path}: {gps_info}")
+    
+        if not gps_info:
+            print(f"No GPS data found in {image_path}")
+            return None
+    
+        def to_float(val):
+            if isinstance(val, tuple):
+                return float(val[0]) / float(val[1])
+            return float(val)
+    
+        def convert_to_decimal(dms, ref):
+            degrees = to_float(dms[0])
+            minutes = to_float(dms[1])
+            seconds = to_float(dms[2])
+            decimal = degrees + minutes / 60 + seconds / 3600
+            if ref in ("S", "W"):
+                decimal *= -1
+            return decimal
+    
+        try:
+            lat = convert_to_decimal(gps_info["GPSLatitude"], gps_info["GPSLatitudeRef"])
+            lon = convert_to_decimal(gps_info["GPSLongitude"], gps_info["GPSLongitudeRef"])
+            return {"latitude": lat, "longitude": lon, "date": date_taken}
+        except Exception as e:
+            print(f"Could not convert GPS data for {image_path}: {e}")
+            return None
+    
+    # === Image orientation ===
+    def auto_orient_image(img):
+        try:
+            for orientation in ExifTags.TAGS.keys():
+                if ExifTags.TAGS[orientation] == 'Orientation':
+                    break
+    
+            exif = img._getexif()
+            if not exif:
+                return img
+    
+            exif = dict(exif.items())
+    
+            if exif.get(orientation) == 3:
+                img = img.rotate(180, expand=True)
+            elif exif.get(orientation) == 6:
+                img = img.rotate(270, expand=True)
+            elif exif.get(orientation) == 8:
+                img = img.rotate(90, expand=True)
+        except Exception:
+            pass
+        return img
+    
+    # === Popup HTML ===
+    def create_popup_html(image_path, resized_file, date_taken=None):
+        with open(resized_file, 'rb') as img_file:
+            encoded = base64.b64encode(img_file.read()).decode()
+    
+        date_html = f'<p style="margin: 5px 0; font-size: 14px;"><b></b> {date_taken}</p>' if date_taken else ''
+    
+        # Create dynamic Google Maps link
+        gmaps_link = f"https://www.google.com/maps?q={lat},{lon}"
+        gmaps_html = f'<p><a href="{gmaps_link}" target="_blank">View on Google Maps📍</a></p>'
+    
+        html = f'''
+            <div style="width: 300px; background: #f9f9f9; border: 1px solid #ccc; padding: 5px;">
+                <img src="data:image/jpeg;base64,{encoded}" 
+                     style="width: 100%; height: auto; object-fit: contain; display: block;"/>
+                {date_html}
+                {gmaps_html}
+            </div>
+        '''
+        
+        iframe = IFrame(html, width=320, height=480)
+        return folium.Popup(iframe, max_width=360)
+    
+    # === Main script ===
+    image_files = [f for f in os.listdir(image_folder) if f.lower().endswith((".jpg", ".jpeg"))]
+    
+    if not image_files:
+        print("No .jpg images found.")
+        exit()
+    
+    m = folium.Map(location=[39.0, -105.5], zoom_start=7)
+    all_coords = []
+    
+    for image_file in image_files:
+        print(f"Processing {image_file}")
+        full_image_path = os.path.join(image_folder, image_file)
+    
+        gps = get_gps_from_exif(full_image_path)
+        if not gps:
+            print(f"Skipping {image_file}: No GPS data.")
+            continue
+    
+        resized_file = os.path.join(resized_folder, f"Resized_{os.path.basename(image_file)}")
+    
+        try:
+            with Image.open(full_image_path) as img:
+                img = auto_orient_image(img)
+                img = img.resize((400, 400))
+                img.save(resized_file)
+        except Exception as e:
+            print(f"Failed to process {image_file}: {e}")
+            continue
+    
+        lat, lon = gps["latitude"], gps["longitude"]
+        all_coords.append([lat, lon])
+    
+        raw_date_str = gps.get("date")  # e.g., '2025:08:02 11:34:56'
+        
+        try:
+            dt_obj = datetime.strptime(raw_date_str, "%Y:%m:%d %H:%M:%S")
+            formatted_date = dt_obj.strftime("%m-%d-%y %I:%M %p")
+        except (ValueError, TypeError):
+            dt_obj = None
+            formatted_date = None
+        
+        popup = create_popup_html(image_file, resized_file, formatted_date)
+        
+        if dt_obj:
+            month = dt_obj.month
+        
+            #spring March 1st - May 29th
+            if (month == 3) or (month == 4) or (month == 5):
+                icon = folium.DivIcon(html='<div style="font-size: 32px;">🌱</div>')
+                
+            #summer June 1st - August 31st
+            elif (month == 6) or (month == 7) or (month == 8):
+                icon = folium.DivIcon(html='<div style="font-size: 32px;">🌳</div>') 
+
+            #fall - Sept. 1st - November 30th
+            elif (month == 9) or (month == 10) or (month == 11):
+                icon = folium.DivIcon(html='<div style="font-size: 32px;">🍂</div>')
+                
+            #winter - Dec. 1st - February 29th
+            elif (month == 12) or (month == 1) or (month == 2):
+                icon = folium.DivIcon(html='<div style="font-size: 32px;">🎄</div>')
+        
+            folium.Marker(
+                [lat, lon],
+                popup=popup,
+                icon=icon
+            ).add_to(m)
+    
+    title_html = '''
+        <h3 align="center" style="font-size:24px"><b>Sweet Treet</b></h3>
+    '''
+    m.get_root().html.add_child(Element(title_html))
+    
+    legend_html = """
+    <div style="position: fixed; 
+                bottom: 50px; left: 50px; 
+                background-color: white; 
+                padding: 10px; 
+                border: 2px solid gray; 
+                border-radius: 5px; 
+                font-size: 16px;
+                z-index: 9999;">
+      <strong>Season Legend:</strong><br>
+      🌱 Spring (Mar 1 – May 31)<br>
+      🌳 Summer (Jun 1 – Aug 31)<br>
+      🍂 Fall (Sep 1 – Nov 30)<br>
+      🎄 Winter (Dec 1 – Feb 29)
+    </div>
+    """
+    
+    m.get_root().html.add_child(Element(legend_html))
+
+    
+    output_path = os.path.join(html_folder, "/Users/tommywadelton/Documents/index.html")
+    m.save(output_path)
+    print("✅ Map saved:", output_path)
+    
+    import subprocess
+    current_time = datetime.now().strftime("%m-%d-%Y %H:%M:%S")
+    # Step 2: Run Git commands
+    def run_command(command):
+        """Run a shell command and print the output."""
+        result = subprocess.run(command, shell=True, text=True, capture_output=True)
+        #print(result.stdout)
+        if result.stderr:
+            pass
+        return result
+    
+    # Add the file
+    run_command("git add index.html")
+    
+    # Commit changes
+    run_command("git commit -m 'Automated: Replace index.html with new version'")
+    
+    # Push to GitHub with --force
+    run_command("git push --force origin main")  # Change 'main' to your branch if needed
+    
+    print(f"Changes made to git at {current_time}")
