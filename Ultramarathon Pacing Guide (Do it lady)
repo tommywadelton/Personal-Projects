@@ -4,6 +4,7 @@ from datetime import datetime, date
 today_str = date.today().strftime('%Y-%m-%d')
 
 # Prompt the user
+units = input("Do you want pace in 'Miles' or 'KMs': ")
 manual_input = input(f"Press Enter to use current time or enter start time manually (in YYYY-MM-DD HH:MM:SS format):")
 
 if manual_input.strip():
@@ -27,7 +28,7 @@ current_timestamp = current_datetime.timestamp()
 
 
 # Define cut-off time and convert to datetime object
-cut_off_str = '2025-09-06 14:00:00'
+cut_off_str = '2025-08-17 10:00:00'
 cut_off_datetime = datetime.strptime(cut_off_str, '%Y-%m-%d %H:%M:%S')
 cut_off_timestamp = cut_off_datetime.timestamp()
 print(f"Cut-off time: {cut_off_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
@@ -35,97 +36,54 @@ print(f"Cut-off time: {cut_off_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
 # Calculate time remaining
 time_remaining_seconds = cut_off_timestamp - current_timestamp
 
+if units == 'Miles':
+    unit = 'minutes/mile'
+elif units == 'KMs':
+    unit = 'minutes/kilometer'
+else:
+    pass
+
+if units == 'Miles':
+    distance_unit = 'mile'
+elif units == 'KMs':
+    distance_unit = 'kilometer'
+else:
+    pass
+
 if time_remaining_seconds <= 0:
     print("🚫 The cut-off time has already passed!")
 else:
     # Get user input for start and end mileage
-    start = input("What mile mark are you starting from?: ")
-    end = input("What mile mark are you ending at?: ")
+    start = input(f"What {distance_unit} mark are you starting from?: ")
+    end = input(f"What {distance_unit} mark are you ending at?: ")
 
     try:
         start = float(start)
         end = float(end)
-        mileage = end - start
+        distance = end - start
 
-        if mileage <= 0:
+        if distance <= 0:
             print("⚠️ End mileage must be greater than start mileage.")
         else:
             # Break time remaining into hours and minutes
             total_minutes_remaining = int(time_remaining_seconds / 60)
             hours_remaining = total_minutes_remaining // 60
             minutes_remaining = total_minutes_remaining % 60
-
-            # Calculate pace needed (min/mile)
-            pace_needed = total_minutes_remaining / mileage
-            pace_minutes = int(pace_needed)
-            pace_seconds = int((pace_needed - pace_minutes) * 60)
-
+            if units == 'Miles':
+                # Calculate pace needed (min/mile)
+                pace_needed = total_minutes_remaining / distance
+                pace_minutes = int(pace_needed)
+                pace_seconds = int((pace_needed - pace_minutes) * 60)
+            elif units == 'KMs':
+                pace_needed = (total_minutes_remaining / distance)
+                pace_minutes = int(pace_needed)
+                pace_seconds = int((pace_needed - pace_minutes) * 60)
+                
             print(f"""
-🏃‍You are running {mileage:.2f} miles, starting at mile {start} and ending at mile {end}.
+🏃‍You are running {distance:.2f} {distance_unit}, starting at {distance_unit} {start} and ending at {distance_unit} {end}.
 🕒 Time remaining until cut-off: {hours_remaining} hours, {minutes_remaining} minutes
-⏱️ Required pace: {pace_minutes}:{pace_seconds:02d} minutes/mile
-
+⏱️ Required pace: {pace_minutes}:{pace_seconds:02d} {unit}
 ✨ Do it, Lady! ✨
 """)
     except ValueError:
         print("❌ Please enter valid numbers for start and end mile marks.")
-        
-#%% Leadville GPX Map Data
-
-import gpxpy
-import gpxpy.gpx
-import os
-os.chdir('/Users/tommywadelton/Downloads')
-# Open and parse the GPX file
-try:
-    with open('visorando-2024-lt-100-run.gpx', 'r') as gpx_file:
-        gpx = gpxpy.parse(gpx_file)
-except FileNotFoundError:
-    print("Error: GPX file not found.")
-    exit()
-
-# Access tracks, segments, and points
-for track in gpx.tracks:
-    for segment in track.segments:
-        for point in segment.points:
-            print(f'Point at ({point.latitude}, {point.longitude}) - Elevation: {point.elevation} - Time: {point.time}')
-            
-import pandas as pd
-
-data = []
-for track in gpx.tracks:
-    for segment in track.segments:
-        for point in segment.points:
-            data.append({
-                'latitude': point.latitude,
-                'longitude': point.longitude,
-                'elevation': point.elevation,
-                'time': point.time
-            })
-df = pd.DataFrame(data)
-print(df.head())
-
-import folium
-
-# Create a map centered at the first point of your track
-if not df.empty:
-    m = folium.Map(location=[df['latitude'].iloc[0], df['longitude'].iloc[0]], zoom_start=13)
-
-    # Add the GPX track as a polyline
-    points = list(zip(df['latitude'], df['longitude']))
-    folium.PolyLine(points, color='blue', weight=2.5, opacity=1).add_to(m)
-
-    # Save the map to an HTML file
-    m.save('gpx_map.html')
-    print("\nMap saved to gpx_map.html")
-else:
-    print("No data to plot.")
-    
-import plotly.express as px
-
-if not df.empty:
-    fig = px.line_mapbox(df, lat="latitude", lon="longitude", zoom=10,
-                         mapbox_style="open-street-map", title="GPX Track")
-    fig.show()
-else:
-    print("No data to plot.")
