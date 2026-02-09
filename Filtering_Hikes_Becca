@@ -1,0 +1,292 @@
+import requests
+import webbrowser
+from urllib.parse import urlencode, parse_qs
+import time
+import pandas as pd
+import math
+
+# Replace with your actual client ID and client secret
+CLIENT_ID = '118537'
+CLIENT_SECRET = 'cde308e3e4e2afe60d05fb0ba7ec633a9d2ae142'
+REDIRECT_URI = 'http://localhost'
+access_token = 'c4a0028455b95fa4afd86caf058bc9b23102d0c3'
+
+MAX_PAGES = 10
+PER_PAGE = 200
+
+
+def authorize():
+    params = {
+        "client_id": CLIENT_ID,
+        "redirect_uri": REDIRECT_URI,
+        "response_type": "code",
+        "approval_prompt": "force",
+        "scope": "read,activity:read_all"
+    }
+
+    auth_url = f"https://www.strava.com/oauth/authorize?{urlencode(params)}"
+    print("Opening browser for authorization...")
+    webbrowser.open(auth_url)
+
+    code = input("Paste the authorization code here: ").strip()
+
+    response = requests.post(
+        "https://www.strava.com/oauth/token",
+        data={
+            "client_id": CLIENT_ID,
+            "client_secret": CLIENT_SECRET,
+            "code": code,
+            "grant_type": "authorization_code"
+        }
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def refresh_access_token(refresh_token):
+    response = requests.post(
+        "https://www.strava.com/oauth/token",
+        data={
+            "client_id": CLIENT_ID,
+            "client_secret": CLIENT_SECRET,
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token
+        }
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def get_valid_token(token_data):
+    if time.time() > token_data["expires_at"]:
+        print("Refreshing expired access token...")
+        token_data = refresh_access_token(token_data["refresh_token"])
+    return token_data
+
+
+BASE_URL = "https://www.strava.com/api/v3"
+
+
+def strava_get(endpoint, access_token, params=None):
+    response = requests.get(
+        f"{BASE_URL}{endpoint}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params=params
+    )
+
+    if response.status_code == 401:
+        raise RuntimeError("Unauthorized: token expired or missing scope")
+
+    response.raise_for_status()
+    return response.json()
+
+
+def fetch_activities(access_token, max_pages=3, per_page=200):
+    activities = []
+
+    for page in range(1, max_pages + 1):
+        print(f"Fetching activities page {page}...")
+        page_data = strava_get(
+            "/athlete/activities",
+            access_token,
+            params={"per_page": per_page, "page": page}
+        )
+
+        if not page_data:
+            break
+
+        activities.extend(page_data)
+
+    return activities
+
+
+def get_activity_details(activity_id, access_token):
+    return strava_get(f"/activities/{activity_id}", access_token)
+
+def haversine_km(lat1, lon1, lat2, lon2):
+    R = 6371  # Earth radius in km
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+
+    a = (
+        math.sin(dphi / 2) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    )
+    return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+KM_TO_MILES = 0.621371
+
+def main():
+    print("Authorizing with Strava...")
+    token_data = authorize()
+
+    token_data = get_valid_token(token_data)
+    access_token = token_data["access_token"]
+
+    print("Fetching activities...")
+    activities = fetch_activities(access_token, MAX_PAGES, PER_PAGE)
+
+    print(f"Fetched {len(activities)} activities")
+
+    df = pd.DataFrame(activities)
+
+
+    # --- After hikes_df is filtered to Hike type ---
+    hikes_df = df[df["type"] == "Hike"].copy()
+    
+    # Normalize useful columns
+    hikes_df["distance_km"] = hikes_df["distance"] / 1000
+    hikes_df["distance_miles"] = hikes_df["distance_km"] * KM_TO_MILES
+    hikes_df["moving_time_hr"] = hikes_df["moving_time"] / 3600
+    hikes_df["elevation_gain_m"] = hikes_df["total_elevation_gain"]
+    hikes_df["elevation_gain_feet"] = hikes_df["total_elevation_gain"] / KM_TO_MILES
+    
+    # Optional convenience metrics
+    hikes_df["pace_min_per_km"] = (hikes_df["moving_time"] / 60) / hikes_df["distance_km"]
+    
+    # Distance from reference point
+    REFERENCE_LAT = 39.715010
+    REFERENCE_LON = -104.988080
+    
+    hikes_df["distance_from_ref_km"] = hikes_df.apply(
+        lambda row: haversine_km(
+            REFERENCE_LAT,
+            REFERENCE_LON,
+            row["start_latlng"][0],
+            row["start_latlng"][1]
+        ) if row["start_latlng"] else None,
+        axis=1
+    )
+    
+    hikes_df["distance_from_ref_miles"] = hikes_df["distance_from_ref_km"] * KM_TO_MILES
+    
+    print(f"Total hikes: {len(hikes_df)}")
+    
+    print("\nSelect your filters...")
+
+    
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.max_rows', None)
+    
+    import tkinter as tk
+    from tkinter import ttk
+
+    def filter_hikes_with_popup(hikes_df):
+        """
+        Shows a popup to set hike filters and returns the filtered DataFrame.
+        """
+        filters = {}
+
+        def apply_filters():
+            filters["min_distance"] = float(min_dist.get())
+            filters["max_distance"] = float(max_dist.get())
+            filters["min_elevation"] = float(min_elev.get())
+            filters["max_elevation"] = float(max_elev.get())
+            filters["min_time"] = float(min_time.get())
+            filters["max_time"] = float(max_time.get())
+            filters["max_radius"] = float(max_radius.get())
+            root.destroy()
+
+        # Tkinter popup
+        root = tk.Tk()
+        root.title("Hike Filters")
+
+        frame = ttk.Frame(root, padding=15)
+        frame.grid()
+
+        def add_row(label, var, row):
+            ttk.Label(frame, text=label).grid(column=0, row=row, sticky="w")
+            ttk.Entry(frame, textvariable=var, width=10).grid(column=1, row=row)
+
+        # Default values
+        min_dist = tk.StringVar(value="0")
+        max_dist = tk.StringVar(value="30")       # miles default
+        min_elev = tk.StringVar(value="0")
+        max_elev = tk.StringVar(value="5000")
+        min_time = tk.StringVar(value="0")
+        max_time = tk.StringVar(value="24")
+        max_radius = tk.StringVar(value="100")    # miles default
+
+        add_row("Min distance (miles)", min_dist, 0)
+        add_row("Max distance (miles)", max_dist, 1)
+        add_row("Min elevation gain (feet)", min_elev, 2)
+        add_row("Max elevation gain (feet)", max_elev, 3)
+        add_row("Min time (hours)", min_time, 4)
+        add_row("Max time (hours)", max_time, 5)
+        add_row("Max distance from point (miles)", max_radius, 6)
+
+        ttk.Button(frame, text="Apply Filters", command=apply_filters).grid(
+            column=0, row=7, columnspan=2, pady=10
+        )
+
+        root.mainloop()
+
+        # Apply filters to the DataFrame
+        filtered_df = hikes_df[
+            (hikes_df["distance_miles"] >= filters["min_distance"]) &
+            (hikes_df["distance_miles"] <= filters["max_distance"]) &
+            (hikes_df["elevation_gain_feet"] >= filters["min_elevation"]) &
+            (hikes_df["elevation_gain_feet"] <= filters["max_elevation"]) &
+            (hikes_df["moving_time_hr"] >= filters["min_time"]) &
+            (hikes_df["moving_time_hr"] <= filters["max_time"]) &
+            (hikes_df["distance_from_ref_miles"] <= filters["max_radius"])
+        ]
+
+        return filtered_df
+    
+    def format_hikes_with_full_links(df):
+        """
+        Formats hikes DataFrame for display:
+        - Distance in miles, 2 decimals
+        - Elevation gain in feet
+        - Moving time in HH:MM
+        - Start date MM-DD-YYYY
+        - Full Google Maps directions link (not truncated)
+        """
+        display_df = df.copy()
+        
+        # Distance in miles, rounded
+        display_df["Distance"] = display_df["distance_miles"].round(2)
+        
+        # Elevation gain in feet
+        display_df["Elevation_Gain"] = (display_df["elevation_gain_m"] * 3.28084).round(0).astype(int)
+        
+        # Moving time in HH:MM
+        total_seconds = (display_df["moving_time_hr"] * 3600).astype(int)
+        display_df["Moving_Time"] = total_seconds.apply(lambda s: f"{s//3600:02d}:{(s%3600)//60:02d}")
+        
+        # Start date in MM-DD-YYYY
+        display_df["Start_Date"] = pd.to_datetime(display_df["start_date"]).dt.strftime("%m-%d-%Y")
+        
+        # Name column
+        display_df["Name"] = display_df["name"]
+        
+        # Full Google Maps link
+        def make_maps_link(row):
+            if row["start_latlng"]:
+                lat, lng = row["start_latlng"]
+                return f"https://www.google.com/maps/dir/?api=1&origin={lat},{lng}"
+            else:
+                return ""
+        
+        display_df["Directions"] = display_df.apply(make_maps_link, axis=1)
+        
+        # Keep only relevant columns
+        display_df = display_df[["Name", "Start_Date", "Distance", "Elevation_Gain", "Moving_Time", "Directions"]]
+        
+        # Display full URLs in Pandas output
+        pd.set_option("display.max_colwidth", None)
+        
+        return display_df
+
+
+
+    filtered_hikes = filter_hikes_with_popup(hikes_df)
+    formatted_hikes = format_hikes_with_full_links(filtered_hikes)
+    
+    print(f"Number of hikes matching filters: {len(formatted_hikes)}")
+    print(formatted_hikes)
+
+if __name__ == "__main__":
+    main()
