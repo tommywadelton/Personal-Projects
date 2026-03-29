@@ -6,10 +6,10 @@ import pandas as pd
 import math
 
 # Replace with your actual client ID and client secret
-CLIENT_ID = '118537'
-CLIENT_SECRET = 'cde308e3e4e2afe60d05fb0ba7ec633a9d2ae142'
+CLIENT_ID = '8011'
+CLIENT_SECRET = '0086080f0ba876ee69a22c472b4651fb6a003264'
 REDIRECT_URI = 'http://localhost'
-access_token = 'c4a0028455b95fa4afd86caf058bc9b23102d0c3'
+access_token = '0acfd79a517973d699aad4c76b7647990d96ea9e'
 
 MAX_PAGES = 10
 PER_PAGE = 200
