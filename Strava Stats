@@ -1,0 +1,527 @@
+import requests
+import webbrowser
+from urllib.parse import urlencode
+import time
+import math
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import numpy as np
+from datetime import timedelta
+
+# ── Auth config ────────────────────────────────────────────────────────────────
+CLIENT_ID = '118537'
+CLIENT_SECRET = 'cde308e3e4e2afe60d05fb0ba7ec633a9d2ae142'
+REDIRECT_URI = 'http://localhost'
+
+MAX_PAGES = 10
+PER_PAGE = 200
+BASE_URL = "https://www.strava.com/api/v3"
+
+RUN_TYPES = {"Run", "TrailRun", "VirtualRun"}
+
+DISPLAY_YEARS = 2   # window shown in chart AND used for limit calculation
+
+# ── Auth helpers ───────────────────────────────────────────────────────────────
+
+def authorize():
+    params = {
+        "client_id": CLIENT_ID,
+        "redirect_uri": REDIRECT_URI,
+        "response_type": "code",
+        "approval_prompt": "force",
+        "scope": "read,activity:read_all"
+    }
+    auth_url = f"https://www.strava.com/oauth/authorize?{urlencode(params)}"
+    print("Opening browser for authorization...")
+    webbrowser.open(auth_url)
+    code = input("Paste the authorization code here: ").strip()
+    response = requests.post(
+        "https://www.strava.com/oauth/token",
+        data={
+            "client_id": CLIENT_ID,
+            "client_secret": CLIENT_SECRET,
+            "code": code,
+            "grant_type": "authorization_code"
+        }
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def refresh_access_token(refresh_token):
+    response = requests.post(
+        "https://www.strava.com/oauth/token",
+        data={
+            "client_id": CLIENT_ID,
+            "client_secret": CLIENT_SECRET,
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token
+        }
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def get_valid_token(token_data):
+    if time.time() > token_data["expires_at"]:
+        print("Refreshing expired access token...")
+        token_data = refresh_access_token(token_data["refresh_token"])
+    return token_data
+
+
+def strava_get(endpoint, access_token, params=None):
+    response = requests.get(
+        f"{BASE_URL}{endpoint}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params=params
+    )
+    if response.status_code == 401:
+        raise RuntimeError("Unauthorized: token expired or missing scope")
+    response.raise_for_status()
+    return response.json()
+
+
+def fetch_activities(access_token, max_pages=MAX_PAGES, per_page=PER_PAGE):
+    activities = []
+    for page in range(1, max_pages + 1):
+        print(f"Fetching activities page {page}...")
+        page_data = strava_get(
+            "/athlete/activities",
+            access_token,
+            params={"per_page": per_page, "page": page}
+        )
+        if not page_data:
+            break
+        activities.extend(page_data)
+    return activities
+
+# ── Weekly mileage aggregation ─────────────────────────────────────────────────
+
+def build_weekly_mileage(activities: list) -> pd.DataFrame:
+    df = pd.DataFrame(activities)
+    if df.empty:
+        raise ValueError("No activities returned from Strava.")
+
+    runs = df[df["sport_type"].isin(RUN_TYPES)].copy()
+    if runs.empty:
+        raise ValueError("No running activities found.")
+
+    runs["start_date"] = pd.to_datetime(runs["start_date"], utc=True).dt.tz_localize(None)
+    runs["distance_miles"] = runs["distance"] / 1609.344
+
+    runs = runs.set_index("start_date").sort_index()
+    weekly = (
+        runs["distance_miles"]
+        .resample("W-SUN")
+        .sum()
+        .rename("miles")
+    )
+
+    full_range = pd.date_range(start=weekly.index.min(),
+                               end=weekly.index.max(),
+                               freq="W-SUN")
+    weekly = weekly.reindex(full_range, fill_value=0.0)
+    weekly.index.name = "week_ending"
+    return weekly.reset_index()
+
+# ── XmR statistics ─────────────────────────────────────────────────────────────
+# Wheeler constants for n=2
+D2_SCALING  = 2.66
+URL_SCALING = 3.268
+
+
+def compute_xmr(df_window: pd.DataFrame):
+    """
+    Computes XmR limits from df_window (the display window).
+    This ensures X̄ reflects your current training level, not historical lows.
+    """
+    df = df_window.copy().reset_index(drop=True)
+    df["MR"] = df["miles"].diff().abs()
+
+    x_bar  = df["miles"].mean()
+    mr_bar = df["MR"].mean()
+
+    unpl = x_bar + D2_SCALING * mr_bar
+    lnpl = max(x_bar - D2_SCALING * mr_bar, 0.0)
+    url  = URL_SCALING * mr_bar
+
+    df["x_bar"]  = x_bar
+    df["unpl"]   = unpl
+    df["lnpl"]   = lnpl
+    df["mr_bar"] = mr_bar
+    df["url"]    = url
+
+    # Rule 1 – outside natural process limits
+    df["x_signal"]  = (df["miles"] > unpl) | (df["miles"] < lnpl)
+    df["mr_signal"] = df["MR"] > url
+
+    # Rule 2 – 8+ consecutive points on same side of X̄
+    for side, col in [(True, "streak_above"), (False, "streak_below")]:
+        streak, streaks = 0, []
+        for val in (df["above_mean"] if side else ~df["above_mean"]) \
+                if "above_mean" in df.columns else \
+                ((df["miles"] > x_bar) if side else (df["miles"] <= x_bar)):
+            streak = streak + 1 if val else 0
+            streaks.append(streak)
+        df[col] = streaks
+
+    df["run_signal"] = (df["streak_above"] >= 8) | (df["streak_below"] >= 8)
+
+    return df, x_bar, mr_bar, unpl, lnpl, url
+
+# ── Colors ─────────────────────────────────────────────────────────────────────
+
+COLOR_NORMAL  = "#4472C4"
+COLOR_LIMIT   = "#FF0000"
+COLOR_TREND   = "#FF9900"
+COLOR_CL      = "#000000"
+COLOR_LIMIT_L = "#FF0000"
+COLOR_GRID    = "#D9D9D9"
+
+
+def _point_color(row) -> str:
+    if row["x_signal"]:
+        return COLOR_LIMIT
+    if row["run_signal"]:
+        return COLOR_TREND
+    return COLOR_NORMAL
+
+# ── XmR chart ──────────────────────────────────────────────────────────────────
+
+def plot_xmr(df_full: pd.DataFrame, display_years: int = DISPLAY_YEARS):
+    """
+    1. Slices to the display window.
+    2. Computes limits from that same window.
+    3. Plots with per-point mileage labels.
+    """
+    cutoff = pd.Timestamp.now() - pd.DateOffset(years=display_years)
+    df_window = df_full[df_full["week_ending"] >= cutoff].copy()
+
+    df, x_bar, mr_bar, unpl, lnpl, url = compute_xmr(df_window)
+
+    fig, (ax1, ax2) = plt.subplots(
+        2, 1, figsize=(22, 9),
+        gridspec_kw={"height_ratios": [3, 1.5]},
+        sharex=True
+    )
+    fig.suptitle(
+        f"Weekly Running Mileage — XmR Chart  "
+        f"(last {display_years} years  |  X̄ = {x_bar:.1f} mi  |  "
+        f"UNPL = {unpl:.1f}  LNPL = {lnpl:.1f})",
+        fontsize=12, fontweight="bold", y=0.99
+    )
+
+    x      = np.arange(len(df))
+    labels = df["week_ending"].dt.strftime("%b %-d\n%Y")
+
+    # ── X chart ───────────────────────────────────────────────────────────
+    colors_x = df.apply(_point_color, axis=1).tolist()
+
+    ax1.plot(x, df["miles"], color="#BBBBBB", linewidth=0.9, zorder=1)
+    ax1.scatter(x, df["miles"], c=colors_x, s=38, zorder=3)
+
+    # Per-point mileage labels — stagger above/below to reduce overlap
+    for i, (xi, miles, color) in enumerate(zip(x, df["miles"], colors_x)):
+        offset = 1.8 if i % 2 == 0 else -2.8   # alternating above/below
+        va     = "bottom" if i % 2 == 0 else "top"
+        ax1.text(xi, miles + offset, f"{miles:.1f}",
+                 ha="center", va=va, fontsize=5.5,
+                 color=color, fontweight="bold")
+
+    # Shaded in-control band
+    ax1.axhspan(lnpl, unpl, alpha=0.06, color=COLOR_NORMAL, zorder=0)
+
+    ax1.axhline(x_bar, color=COLOR_CL,      linewidth=1.6, linestyle="-",  zorder=2)
+    ax1.axhline(unpl,  color=COLOR_LIMIT_L, linewidth=1.2, linestyle="--", zorder=2)
+    ax1.axhline(lnpl,  color=COLOR_LIMIT_L, linewidth=1.2, linestyle="--", zorder=2)
+
+    # Right-margin annotations
+    right = len(x) - 1
+    pad   = len(x) * 0.005
+    for val, label, color in [
+        (unpl,  f"UNPL  {unpl:.1f}", COLOR_LIMIT_L),
+        (x_bar, f"X̄     {x_bar:.1f}", COLOR_CL),
+        (lnpl,  f"LNPL  {lnpl:.1f}", COLOR_LIMIT_L),
+    ]:
+        ax1.text(right + pad * 4, val, label,
+                 va="center", ha="left", fontsize=8,
+                 color=color, fontweight="bold")
+
+    ax1.set_ylabel("Miles per week", fontsize=11)
+    ax1.set_ylim(bottom=0, top=max(df["miles"].max(), unpl) * 1.20)
+    ax1.set_xlim(-1, len(x) + len(x) * 0.07)
+    ax1.grid(axis="y", color=COLOR_GRID, linewidth=0.6)
+    ax1.spines[["top", "right"]].set_visible(False)
+
+    ax1.legend(handles=[
+        mpatches.Patch(color=COLOR_NORMAL, label="Normal (in control)"),
+        mpatches.Patch(color=COLOR_LIMIT,  label="Outside NPLs — Rule 1"),
+        mpatches.Patch(color=COLOR_TREND,  label="Run of 8 — Rule 2 (shift)"),
+        plt.Line2D([0], [0], color=COLOR_CL,      linestyle="-",  linewidth=1.5,
+                   label=f"X̄ = {x_bar:.1f} mi"),
+        plt.Line2D([0], [0], color=COLOR_LIMIT_L, linestyle="--", linewidth=1.2,
+                   label=f"UNPL / LNPL = {unpl:.1f} / {lnpl:.1f} mi"),
+    ], fontsize=8, loc="upper left", framealpha=0.9)
+
+    # ── MR chart ──────────────────────────────────────────────────────────
+    mr_vals   = df["MR"].fillna(0)
+    colors_mr = [COLOR_LIMIT if s else COLOR_NORMAL for s in df["mr_signal"]]
+
+    ax2.plot(x, mr_vals, color="#BBBBBB", linewidth=0.9, zorder=1)
+    ax2.scatter(x, mr_vals, c=colors_mr, s=28, zorder=3)
+
+    # MR labels
+    for i, (xi, mr, color) in enumerate(zip(x, mr_vals, colors_mr)):
+        if mr > 0:
+            offset = 0.8 if i % 2 == 0 else -1.2
+            va     = "bottom" if i % 2 == 0 else "top"
+            ax2.text(xi, mr + offset, f"{mr:.1f}",
+                     ha="center", va=va, fontsize=5,
+                     color=color, fontweight="bold")
+
+    ax2.axhline(mr_bar, color=COLOR_CL,      linewidth=1.6, linestyle="-",  zorder=2)
+    ax2.axhline(url,    color=COLOR_LIMIT_L, linewidth=1.2, linestyle="--", zorder=2)
+
+    for val, label, color in [
+        (url,    f"URL  {url:.1f}",    COLOR_LIMIT_L),
+        (mr_bar, f"MR̄   {mr_bar:.1f}", COLOR_CL),
+    ]:
+        ax2.text(right + pad * 4, val, label,
+                 va="center", ha="left", fontsize=8,
+                 color=color, fontweight="bold")
+
+    ax2.set_ylabel("Moving Range\n(miles)", fontsize=10)
+    ax2.set_ylim(bottom=0, top=max(mr_vals.max(), url) * 1.25)
+    ax2.set_xlim(-1, len(x) + len(x) * 0.07)
+    ax2.grid(axis="y", color=COLOR_GRID, linewidth=0.6)
+    ax2.spines[["top", "right"]].set_visible(False)
+    ax2.legend(handles=[
+        plt.Line2D([0], [0], color=COLOR_CL,      linestyle="-",  linewidth=1.5,
+                   label=f"MR̄ = {mr_bar:.1f} mi"),
+        plt.Line2D([0], [0], color=COLOR_LIMIT_L, linestyle="--", linewidth=1.2,
+                   label=f"URL = {url:.1f} mi"),
+    ], fontsize=8, loc="upper left", framealpha=0.9)
+
+    # ── X-axis: one label per 4 weeks ─────────────────────────────────────
+    step = 4
+    ax2.set_xticks(x[::step])
+    ax2.set_xticklabels(labels.iloc[::step], rotation=0, ha="center", fontsize=7)
+
+    plt.tight_layout(rect=[0, 0, 1, 0.97])
+    plt.show()
+
+    return x_bar, mr_bar, unpl, lnpl, url, df
+
+# ── Console summary ────────────────────────────────────────────────────────────
+
+def print_summary(df_full: pd.DataFrame, display_years: int = DISPLAY_YEARS):
+    cutoff   = pd.Timestamp.now() - pd.DateOffset(years=display_years)
+    df_window = df_full[df_full["week_ending"] >= cutoff].copy()
+    df, x_bar, mr_bar, unpl, lnpl, url = compute_xmr(df_window)
+
+    active_weeks = (df["miles"] > 0).sum()
+    signal_weeks = df["x_signal"].sum()
+    trend_weeks  = df["run_signal"].sum()
+
+    print(f"\n{'═'*60}")
+    print(f"  XmR Weekly Mileage Summary  (last {display_years} years)")
+    print(f"{'═'*60}")
+    print(f"  Date range    : {df['week_ending'].min().date()}  →  {df['week_ending'].max().date()}")
+    print(f"  Total weeks   : {len(df)}  ({active_weeks} with mileage)")
+    print(f"\n  Limits (from {display_years}-year window):")
+    print(f"    X̄  (avg weekly miles)  : {x_bar:6.1f} mi")
+    print(f"    MR̄ (avg moving range)  : {mr_bar:6.1f} mi")
+    print(f"    UNPL                   : {unpl:6.1f} mi")
+    print(f"    LNPL                   : {lnpl:6.1f} mi")
+    print(f"    URL  (range limit)     : {url:6.1f} mi")
+    print(f"\n  Signals:")
+    print(f"    Outside NPLs (Rule 1)  : {signal_weeks} week(s)")
+    print(f"    Run of 8   (Rule 2)    : {trend_weeks} week(s) flagged")
+    print(f"\n  Last 8 weeks:")
+    print(f"  {'Week ending':<14} {'Miles':>7}  Signal")
+    print(f"  {'─'*40}")
+    for _, row in df.tail(8).iterrows():
+        flag = "⚠  Outside NPLs" if row["x_signal"] else \
+               "↑  Run of 8"    if row["run_signal"] else ""
+        print(f"  {str(row['week_ending'].date()):<14} {row['miles']:>7.1f}  {flag}")
+    print(f"{'═'*60}\n")
+
+# ── Yearly stats table ─────────────────────────────────────────────────────────
+
+def print_yearly_stats(activities: list):
+    """
+    Total miles/time/avg length → all run types (Run, TrailRun, VirtualRun)
+    Avg pace                    → Road runs only (Run, VirtualRun)
+    """
+    df = pd.DataFrame(activities)
+    if df.empty:
+        return
+
+    # ── two filtered views ─────────────────────────────────────────────────
+    ALL_RUN_TYPES  = {"Run", "TrailRun", "VirtualRun"}
+    PACE_RUN_TYPES = {"Run", "VirtualRun"}   # exclude TrailRun from pace
+
+    all_runs  = df[df["sport_type"].isin(ALL_RUN_TYPES)].copy()
+    pace_runs = df[df["sport_type"].isin(PACE_RUN_TYPES)].copy()
+
+    if all_runs.empty:
+        return
+
+    for frame in (all_runs, pace_runs):
+        frame["start_date"]     = pd.to_datetime(frame["start_date"], utc=True).dt.tz_localize(None)
+        frame["year"]           = frame["start_date"].dt.year
+        frame["distance_miles"] = frame["distance"] / 1609.344
+        frame["moving_time_s"]  = frame["moving_time"].astype(float)
+
+    # ── aggregate separately ───────────────────────────────────────────────
+    yearly_all = (
+        all_runs.groupby("year")
+        .agg(
+            runs        = ("distance_miles", "count"),
+            total_miles = ("distance_miles", "sum"),
+            total_secs  = ("moving_time_s",  "sum"),
+        )
+        .reset_index()
+    )
+    yearly_all["avg_miles"] = yearly_all["total_miles"] / yearly_all["runs"]
+
+    yearly_pace = (
+        pace_runs.groupby("year")
+        .agg(
+            pace_miles = ("distance_miles", "sum"),
+            pace_secs  = ("moving_time_s",  "sum"),
+        )
+        .reset_index()
+    )
+    yearly_pace["pace_secs_mile"] = yearly_pace["pace_secs"] / yearly_pace["pace_miles"]
+
+    # ── merge ──────────────────────────────────────────────────────────────
+    yearly = yearly_all.merge(yearly_pace[["year", "pace_secs_mile"]], on="year", how="left")
+
+    # ── formatters ────────────────────────────────────────────────────────
+    def fmt_hhmmss(secs):
+        secs = int(secs)
+        h, rem = divmod(secs, 3600)
+        m, s   = divmod(rem, 60)
+        return f"{h}:{m:02d}:{s:02d}"
+
+    def fmt_mmss(secs):
+        secs = int(secs)
+        m, s = divmod(secs, 60)
+        return f"{m}:{s:02d}"
+
+    yearly["total_time_fmt"]  = yearly["total_secs"].apply(fmt_hhmmss)
+    yearly["avg_pace_fmt"]    = yearly["pace_secs_mile"].apply(
+                                    lambda v: fmt_mmss(v) if pd.notna(v) else "—")
+    yearly["avg_miles_fmt"]   = yearly["avg_miles"].apply(lambda x: f"{x:.1f}")
+    yearly["total_miles_fmt"] = yearly["total_miles"].apply(lambda x: f"{x:.1f}")
+
+    # ── console table ──────────────────────────────────────────────────────
+    col_w   = [6, 5, 12, 13, 12, 14]
+    headers = ["Year", "Runs", "Total Miles", "Total Time", "Avg Length", "Avg Pace (road)"]
+
+    print(f"\n{'═'*66}")
+    print("Yearly Running Stats")
+    print("  (Total miles = all types  |  Avg pace = road runs only)")
+    print(f"{'═'*66}")
+    print("  " + "  ".join(h.ljust(col_w[i]) for i, h in enumerate(headers)))
+    print("  " + "─" * 62)
+
+    for _, row in yearly.iterrows():
+        print(
+            f"  {str(int(row['year'])).ljust(col_w[0])}"
+            f"  {str(int(row['runs'])).ljust(col_w[1])}"
+            f"  {row['total_miles_fmt'].ljust(col_w[2])}"
+            f"  {row['total_time_fmt'].ljust(col_w[3])}"
+            f"  {(row['avg_miles_fmt'] + ' mi').ljust(col_w[4])}"
+            f"  {(row['avg_pace_fmt'] + ' /mi').ljust(col_w[5])}"
+        )
+
+    print(f"{'═'*66}\n")
+
+    # ── bar chart ──────────────────────────────────────────────────────────
+    years = yearly["year"].astype(int).tolist()
+    x     = np.arange(len(years))
+    bar_w = 0.6
+
+    fig, axes = plt.subplots(2, 2, figsize=(14, 8))
+    fig.suptitle(
+        "Yearly Running Stats\n"
+        "(total miles = all types  |  avg pace = road runs only)",
+        fontsize=13, fontweight="bold"
+    )
+
+    def bar(ax, values, title, ylabel, color, fmt_fn=None):
+        bars = ax.bar(x, values, width=bar_w, color=color,
+                      edgecolor="white", linewidth=0.6, zorder=2)
+        ax.set_title(title, fontsize=11, fontweight="bold")
+        ax.set_ylabel(ylabel, fontsize=9)
+        ax.set_xticks(x)
+        ax.set_xticklabels(years, fontsize=9)
+        ax.set_ylim(bottom=0, top=max(values) * 1.18)
+        ax.grid(axis="y", color=COLOR_GRID, linewidth=0.6, zorder=1)
+        ax.spines[["top", "right"]].set_visible(False)
+        for b, val in zip(bars, values):
+            label = fmt_fn(val) if fmt_fn else f"{val:.0f}"
+            ax.text(b.get_x() + b.get_width() / 2,
+                    b.get_height() + max(values) * 0.01,
+                    label, ha="center", va="bottom", fontsize=8, fontweight="bold")
+
+    bar(axes[0, 0], yearly["total_miles"].tolist(),
+        "Total Miles per Year", "Miles", "#4472C4",
+        fmt_fn=lambda v: f"{v:.0f} mi")
+
+    bar(axes[0, 1], (yearly["total_secs"] / 3600).tolist(),
+        "Total Time per Year", "Hours", "#ED7D31",
+        fmt_fn=lambda v: f"{v:.0f} hrs")
+
+    bar(axes[1, 0], yearly["avg_miles"].tolist(),
+        "Avg Run Length per Year\n(all types)", "Miles", "#70AD47",
+        fmt_fn=lambda v: f"{v:.1f} mi")
+
+    # Pace bars — inverted axis (faster = taller bar)
+    pace_vals = yearly["pace_secs_mile"].fillna(0).tolist()
+    bars = axes[1, 1].bar(x, pace_vals, width=bar_w, color="#7030A0",
+                          edgecolor="white", linewidth=0.6, zorder=2)
+    axes[1, 1].set_title("Avg Pace per Year\n(road runs only)", fontsize=11, fontweight="bold")
+    axes[1, 1].set_ylabel("Seconds / mile", fontsize=9)
+    axes[1, 1].set_xticks(x)
+    axes[1, 1].set_xticklabels(years, fontsize=9)
+    axes[1, 1].invert_yaxis()
+    axes[1, 1].set_ylim(bottom=max(pace_vals) * 1.18, top=0)
+    axes[1, 1].grid(axis="y", color=COLOR_GRID, linewidth=0.6, zorder=1)
+    axes[1, 1].spines[["top", "right"]].set_visible(False)
+    for b, val, row in zip(bars, pace_vals, yearly.itertuples()):
+        label = row.avg_pace_fmt + " /mi"
+        axes[1, 1].text(b.get_x() + b.get_width() / 2,
+                        b.get_height() - max(pace_vals) * 0.01,
+                        label, ha="center", va="top",
+                        fontsize=8, fontweight="bold", color="white")
+
+    plt.tight_layout()
+    plt.show()
+    
+# ── Main ───────────────────────────────────────────────────────────────────────
+
+def main():
+    print("Authorizing with Strava...")
+    token_data = authorize()
+    token_data = get_valid_token(token_data)
+    access_token = token_data["access_token"]
+
+    print("Fetching activities...")
+    activities = fetch_activities(access_token)
+    print(f"Total activities fetched: {len(activities)}")
+
+    print("Building weekly mileage...")
+    weekly = build_weekly_mileage(activities)
+    print(f"Total weeks in full history: {len(weekly)}")
+    
+    print_summary(weekly, display_years=DISPLAY_YEARS)
+    print_yearly_stats(activities)           # ← add this
+    plot_xmr(weekly, display_years=DISPLAY_YEARS)
+
+
+if __name__ == "__main__":
+    main()
